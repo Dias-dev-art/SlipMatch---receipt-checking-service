@@ -1,0 +1,10 @@
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+
+# Node / Next.js
+node_modules/
+.next/
