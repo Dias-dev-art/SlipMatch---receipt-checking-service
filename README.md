@@ -63,22 +63,28 @@ SlipMatch is an Orbyte module that leverages a vision AI model (Qwen2.5-VL-7B) o
 .
 ├── docs/                    # Screenshots, diagrams
 ├── runpod/
+│   ├── CLAUDE.md            # Fine-tuning + serving on RunPod
 │   └── handler.py           # RunPod serverless handler (GPU workload)
 ├── src/
-│   ├── main.py              # Application entry point
-│   └── utils.py             # Helper functions
+│   ├── CLAUDE.md            # Start here: goals, rules, build order
+│   ├── ARCHITECTURE.md      # System design, message flow, AI agent loop
+│   ├── DATABASE.md          # Tables and relations
+│   ├── API.md               # HTTP endpoints and AI tool contracts
+│   ├── backend/             # FastAPI (Python)
+│   │   └── CLAUDE.md
+│   └── frontend/            # Next.js owner dashboard
+│       └── CLAUDE.md
 ├── submission/              # Required submission documents
 │   ├── SDC2026_TeamName_Preliminary.pdf      # Preliminary submission
 │   ├── SDC2026_TeamName_TechDeclaration.pdf  # Technology declaration
 │   ├── SDC2026_TeamName_Replit_POU.pdf       # Replit proof of use
 │   └── SDC2026_TeamName_Runpod_POU.pdf       # RunPod proof of use
-├── tests/
-│   └── test_utils.py        # Unit tests
+├── test/                    # Tests
 ├── .env.example             # Example environment variables
 ├── .gitignore
 ├── .replit                  # Replit run configuration
+├── docker-compose.yml       # Local PostgreSQL
 ├── LICENSE
-├── requirements.txt         # Python dependencies
 └── README.md
 ```
 
@@ -126,7 +132,7 @@ python src/main.py
 ### Run Tests
 
 ```bash
-python -m unittest discover tests
+python -m unittest discover test
 ```
 
 ---
