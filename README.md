@@ -1,10 +1,4 @@
-> [!IMPORTANT]
-> ## 📁 Submission Documents & Templates
-> **All required submission templates are in the Google Drive folder below. Download them before you start.**
->
-> ### 👉 [**OPEN THE GOOGLE DRIVE FOLDER**](https://drive.google.com/drive/folders/1xw7c2aN8N-at8hPEULzkcU76e_FFb0Ef) 👈
 
----
 
 # Project Name
 
@@ -16,12 +10,12 @@
 
 | Field                  | Details                                     |
 | ---------------------- | ------------------------------------------- |
-| **Team Name**          | Your Team Name                              |
-| **Team Domain**        | Domain 1 / Domain 2 *(choose one)*          |
+| **Team Name**          | Quintuplets                                 |
+| **Team Domain**        | Domain 2                                    |
 | **SDG Track (1–17)**   | e.g. SDG 11 — Sustainable Cities and Communities |
-| **Team Leader**        | Leader Name                                 |
-| **University**         | University Name(s)                          |
-| **Number of Members**  | e.g. 4                                      |
+| **Team Leader**        | Dias Zhumadilda                             |
+| **University**         | Xiamen University Malaysia                  |
+| **Number of Members**  | 5                                           |
 
 ## Links
 
@@ -39,12 +33,11 @@
 ## Overview
 
 ### Problem
-
-Describe the real-world problem you are solving in 2–4 sentences. Who is affected, and why does it matter?
+The payment proof that the Malaysian micro-sellers receive when they receive orders through WhatsApp are usually screenshots of the DuitNow or bank transaction, and dozens of times per day. For each of these, the owner must open a bank app and locate the corresponding transfer, and verify it against the right order, which requires 6 steps or so and is typically done late at night. It's slow and prone to error: an incorrect amount can be missed; failed payment or the same image twice and sellers could end up with goods sent to an empty wallet. It impacts home-based sellers, small caterers and other micro and small businesses without accounting employees or payment-gateway integrations.
 
 ### Solution
 
-Explain how your project uses AI to solve the problem and what makes it valuable.
+SlipMatch is an Orbyte module that leverages a vision AI model (Qwen2.5-VL-7B) on a dedicated RunPod endpoint to read payment-proof screenshots sent on WhatsApp. It captures the amount, the reference, the date and who it is for, and it compares these data with open invoices and bank statement based on 5 transparent rules: amount, reference, payee, date window and duplicate slip. Each slip has a status (Matched, Needs review or Suspicious) and simple language reasons, so the slip owner knows why. All payments are not recorded as paid until approved by the Owner, and all actions are stored in an audit log. If the model is unable to read a field, the slip is not guessed and it is sent to human review instead. A manual entry fallback is provided for the workflow if the AI endpoint is not available, with a clear and prominent label. The value is that AI covers part rules that cannot be covered (reading screenshots), rules and a human keep the decision accurate and accountable.
 
 ### Key Features
 
@@ -56,9 +49,9 @@ Explain how your project uses AI to solve the problem and what makes it valuable
 
 | Layer         | Technology                   |
 | ------------- | ---------------------------- |
-| Frontend      | e.g. HTML, React             |
-| Backend       | e.g. Python, Flask / FastAPI |
-| Database      | e.g. PostgreSQL, SQLite      |
+| Frontend      | HTML, React                  |
+| Backend       | Python, FastAPI              |
+| Database      | PostgreSQL                   |
 | AI / Compute  | RunPod (GPU)                 |
 | Hosting / Dev | Replit                       |
 
