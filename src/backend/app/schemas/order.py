@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.models import Customer, Order, OrderStatus, OrderType
-from app.services import orders
+from app.services import media, orders
 
 
 class OrderItemOut(BaseModel):
@@ -51,6 +51,7 @@ def order_out(session: Session, order: Order) -> OrderOut:
     # attribute access (not model_dump) so expired rows are reloaded after commit
     skip = {"items", "customer"}
     fields = {name: getattr(order, name) for name in OrderOut.model_fields if name not in skip}
+    fields["payment_proof_media_url"] = media.absolute_url(order.payment_proof_media_url)
     customer = session.get(Customer, order.customer_id)
     return OrderOut(
         **fields,

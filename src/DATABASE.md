@@ -27,7 +27,7 @@ Every tenant table has `business_id` and an index on it. Queries on tenant data 
 | delivery_enabled        | bool             |                                         |
 | delivery_fee            | numeric(10,2)    |                                         |
 | pickup_enabled          | bool             |                                         |
-| payment_qr_url          | text             | uploaded DuitNow QR image               |
+| payment_qr_url          | text             | uploaded DuitNow QR, stored as `/media/...` path |
 | payment_instructions    | text             | bank name / account shown to customer   |
 | unique_amount_cents     | bool             | add 0.01–0.99 to make each total unique |
 | payment_timeout_minutes | int              | default 10                              |
@@ -39,11 +39,12 @@ Every tenant table has `business_id` and an index on it. Queries on tenant data 
 | Column                 | Type        | Notes                                        |
 | ---------------------- | ----------- | -------------------------------------------- |
 | id                     | uuid PK     |                                              |
-| business_id            | uuid FK     |                                              |
+| business_id            | uuid FK unique | one number per business for MVP           |
 | phone_number_id        | text unique | from Meta, used to resolve tenant on webhook |
 | display_phone          | text        |                                              |
-| access_token_encrypted | text        | never returned by API                        |
+| access_token_encrypted | text        | Fernet (`TOKEN_ENCRYPTION_KEY`); never returned by API |
 | coexistence            | bool        | number also used in WhatsApp Business app    |
+| created_at             | timestamptz |                                              |
 
 ### menu_items
 
@@ -59,6 +60,7 @@ Every tenant table has `business_id` and an index on it. Queries on tenant data 
 | category     | text nullable |                                                                    |
 | is_available | bool          | "sold out" toggle                                                  |
 | sort_order   | int           |                                                                    |
+| deleted_at   | timestamptz nullable | soft delete when old orders still reference the item        |
 
 ### customers
 
@@ -76,7 +78,7 @@ Every tenant table has `business_id` and an index on it. Queries on tenant data 
 | ----------- | ------- | ----------------- |
 | id          | uuid PK |                   |
 | business_id | uuid FK |                   |
-| wa_phone    | text    |                   |
+| wa_phone    | text    | unique per business |
 | label       | text    | "Mum", "Supplier" |
 
 ### conversations
@@ -88,6 +90,7 @@ Every tenant table has `business_id` and an index on it. Queries on tenant data 
 | customer_id              | uuid FK              |                                    |
 | needs_owner              | bool                 | handoff flag; AI silent while true |
 | handoff_reason           | text nullable        |                                    |
+| handoff_at               | timestamptz nullable | when flagged; AI resumes 24h later |
 | ai_paused_until          | timestamptz nullable | owner takeover                     |
 | last_customer_message_at | timestamptz          | for the 24h window                 |
 | created_at               | timestamptz          |                                    |

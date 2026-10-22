@@ -100,8 +100,9 @@ const item = (
 ): Order["items"][number] => ({
   id,
   menu_item_id: menu.id,
-  name_snapshot: menu.name,
-  unit_price_snapshot: menu.price,
+  slug: menu.slug,
+  name: menu.name,
+  unit_price: menu.price,
   qty,
   note,
 });
@@ -161,8 +162,8 @@ export const seedOrders: Order[] = [
     status: "awaiting_payment",
     order_type: "delivery",
     address_text: null,
-    location_lat: 3.0738,
-    location_lng: 101.5183,
+    location_lat: "3.073800",
+    location_lng: "101.518300",
     items: [item("oi_5", nasiLemak, 1)],
     subtotal: "8.00",
     delivery_fee: "3.00",

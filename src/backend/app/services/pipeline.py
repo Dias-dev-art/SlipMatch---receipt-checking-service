@@ -17,6 +17,7 @@ from app.agent.loop import Outcome, run_agent
 from app.models import (
     ACTIVE_STATUSES,
     Business,
+    ContactExclusion,
     Conversation,
     Customer,
     Direction,
@@ -26,7 +27,7 @@ from app.models import (
     Sender,
 )
 from app.models.base import utcnow
-from app.services import events, orders, templates
+from app.services import events, handoff, orders, templates
 from app.services.outbox import CollectingOutbox, Outbox  # noqa: F401  (re-export)
 
 log = logging.getLogger(__name__)
@@ -49,6 +50,8 @@ class IncomingMessage:
     latitude: Decimal | None = None
     longitude: Decimal | None = None
     media_id: str | None = None
+    # where the downloaded image is served (/media/...), when the download worked
+    media_url: str | None = None
 
 
 def _publish(
@@ -179,11 +182,58 @@ def _incoming_text(incoming: IncomingMessage) -> str | None:
     return None
 
 
+def is_excluded(session: Session, business_id: uuid.UUID, phone: str) -> bool:
+    return (
+        session.exec(
+            select(ContactExclusion.id).where(
+                ContactExclusion.business_id == business_id, ContactExclusion.wa_phone == phone
+            )
+        ).first()
+        is not None
+    )
+
+
+def handle_owner_echo(
+    session: Session,
+    business_id: uuid.UUID,
+    customer_phone: str,
+    text: str | None,
+    wa_message_id: str | None = None,
+) -> str:
+    """The owner wrote to a customer from the WhatsApp Business app (coexistence echo).
+
+    The owner is handling this chat now: store the message and pause the AI for 24h.
+    """
+    if is_excluded(session, business_id, customer_phone):
+        return "excluded"
+    customer = _get_customer(
+        session, IncomingMessage(business_id=business_id, customer_phone=customer_phone)
+    )
+    conversation, _ = _get_conversation(session, customer)
+    handoff.owner_took_over(conversation)
+    session.add(conversation)
+    _save(
+        session,
+        conversation,
+        Direction.out,
+        Sender.owner,
+        text,
+        wa_message_id=wa_message_id,
+    )
+    session.commit()
+    return "ai_paused"
+
+
 def handle_incoming(session: Session, incoming: IncomingMessage, outbox: Outbox) -> PipelineResult:
     business = session.get(Business, incoming.business_id)
     if business is None:
         log.info("message for unknown business ignored")
         return PipelineResult(None, None, None, "unknown_business")
+
+    # friends, family, suppliers: nothing is stored and the AI never sees it
+    if is_excluded(session, business.id, incoming.customer_phone):
+        log.info("message from excluded contact %s ignored", mask_phone(incoming.customer_phone))
+        return PipelineResult(None, None, None, "excluded")
 
     customer = _get_customer(session, incoming)
     conversation, is_new = _get_conversation(session, customer)
@@ -196,6 +246,8 @@ def handle_incoming(session: Session, incoming: IncomingMessage, outbox: Outbox)
         payload = {"lat": str(incoming.latitude), "lng": str(incoming.longitude)}
     elif incoming.media_id:
         payload = {"media_id": incoming.media_id}
+        if incoming.media_url:
+            payload["url"] = incoming.media_url
     text = _incoming_text(incoming)
     _save(
         session,
@@ -240,8 +292,9 @@ def handle_incoming(session: Session, incoming: IncomingMessage, outbox: Outbox)
         session.add(order)
     elif incoming.type == MessageType.image:
         order = orders.get_active_order(session, conversation.id)
-        if order and incoming.media_id:
-            order.payment_proof_media_url = incoming.media_id  # hint only, never proof
+        proof = incoming.media_url or incoming.media_id
+        if order and proof:
+            order.payment_proof_media_url = proof  # hint only, never proof
             session.add(order)
     elif text is None:
         outbox.send_text(customer.wa_phone, templates.TEXT_ONLY)

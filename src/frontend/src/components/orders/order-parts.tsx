@@ -57,11 +57,11 @@ export function OrderItems({ order }: { order: Order }) {
         <li key={item.id} className="flex items-baseline gap-2">
           <span className="w-6 shrink-0 font-medium tabular-nums">{item.qty}×</span>
           <span className="min-w-0 flex-1">
-            {item.name_snapshot}
+            {item.name}
             {item.note && <span className="block text-xs text-muted-foreground italic">“{item.note}”</span>}
           </span>
           <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-            {formatMYR(item.unit_price_snapshot)} {t.orders.each}
+            {formatMYR(item.unit_price)} {t.orders.each}
           </span>
         </li>
       ))}

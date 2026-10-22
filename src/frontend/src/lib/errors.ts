@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 
-import { ApiError } from "@/lib/mock-api";
+import { ApiError } from "@/lib/api";
 import { t } from "@/lib/strings";
 
 export function isConflict(error: unknown): boolean {

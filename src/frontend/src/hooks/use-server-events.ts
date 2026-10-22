@@ -6,14 +6,12 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 
 import { orderKeys } from "@/hooks/use-orders";
-import * as api from "@/lib/mock-api";
+import * as api from "@/lib/api";
+import { toastError } from "@/lib/errors";
 import { playPaymentAlert } from "@/lib/sound";
 import { t } from "@/lib/strings";
 
-/**
- * Reacts to realtime events. Today they come from the mock API; with the backend this
- * becomes an EventSource on /api/v1/events?token=… (reconnect on error), same handler.
- */
+/** Reacts to realtime events from the backend's SSE stream (/api/v1/events). */
 export function useServerEvents() {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -32,6 +30,22 @@ export function useServerEvents() {
             toast.warning(t.orders.alertTitle, {
               description: t.orders.alertBody,
               action: { label: t.orders.alertView, onClick: () => router.push("/orders") },
+            });
+            break;
+          case "conversation.needs_owner":
+            // The AI stopped answering this chat. The owner replies from the WhatsApp Business
+            // app, or gives the chat back to the AI here (it also resumes by itself after 24h).
+            toast.warning(t.handoff.title, {
+              description: t.handoff.body,
+              duration: 30_000,
+              action: {
+                label: t.handoff.resume,
+                onClick: () =>
+                  api
+                    .resumeAi(event.conversation_id)
+                    .then(() => toast.success(t.handoff.resumed))
+                    .catch((error) => toastError(error)),
+              },
             });
             break;
         }

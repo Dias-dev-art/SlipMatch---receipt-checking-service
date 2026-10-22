@@ -11,10 +11,12 @@ from app.models.customer import (
 )
 from app.models.menu import MenuItem
 from app.models.order import ACTIVE_STATUSES, Order, OrderItem, OrderStatus, OrderType
+from app.models.whatsapp import ContactExclusion, ProcessedWebhook, WhatsAppAccount
 
 __all__ = [
     "ACTIVE_STATUSES",
     "Business",
+    "ContactExclusion",
     "Conversation",
     "Customer",
     "Direction",
@@ -26,5 +28,7 @@ __all__ = [
     "OrderStatus",
     "OrderType",
     "Owner",
+    "ProcessedWebhook",
     "Sender",
+    "WhatsAppAccount",
 ]

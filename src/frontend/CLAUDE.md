@@ -38,9 +38,9 @@ src/
 │   └── (dashboard)/layout.tsx, orders, menu, settings
 ├── components/        # app components (OrderCard, MenuItemDialog, ...); shadcn in components/ui
 ├── lib/
-│   ├── api.ts         # (todo) fetch wrapper: base URL, bearer token, error → toast, 401 → /login
+│   ├── api.ts         # the backend: fetch wrapper (base URL, bearer token, 401 → /login) + SSE
 │   ├── api-types.ts   # (todo) generated
-│   ├── mock-api.ts    # in-memory backend stand-in (see "Mock data")
+│   ├── mock-api.ts    # in-memory backend stand-in, same exports as api.ts (see "Mock data")
 │   ├── strings.ts     # all UI text
 │   ├── format.ts      # formatMYR, times, phones
 │   └── auth.ts        # token in memory + localStorage, useToken()
@@ -56,11 +56,16 @@ No Inbox or Test chat page: when the AI hands a chat off (`handoff_to_owner`), t
 - Signal colors are tokens too: `status-check` (amber), `status-awaiting`, `status-approved` (green), `status-cancelled`, `danger` (red), each with a `-soft` background. Status → classes map lives in `components/orders/status.ts`.
 - Use tokens (`bg-primary`, `text-muted-foreground`, `bg-status-check-soft`…), never raw Tailwind colors like `bg-amber-500`. The only exception is the white behind the payment QR (QR codes need it to scan).
 
-## Mock data (until the backend exists)
+## Backend connection
 
-- `src/lib/mock-api.ts` is an in-memory stand-in for the FastAPI endpoints (same names and shapes as `API.md`), seeded from `src/lib/mock-data.ts` (Kak Ani Kitchen). State resets on reload. It also emits the order SSE events and runs the expiry timer.
-- `src/lib/types.ts` hand-writes the API shapes; replace with the generated `api-types.ts`. Money is a decimal string from the API.
-- Components never import `mock-api` directly: data goes through hooks in `src/hooks/use-*.ts` (TanStack Query). To switch to the real backend, add `lib/api.ts` (fetch wrapper) and change the `* as api` import in those hooks; `use-server-events.ts` becomes an `EventSource` on `/api/v1/events?token=…` with the same handler.
+- Hooks in `src/hooks/use-*.ts` (TanStack Query) import `* as api from "@/lib/api"`, which calls the FastAPI backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`; set it in `src/frontend/.env.local` if different). The backend must allow this origin: `FRONTEND_URL` in the repo `.env`.
+- `subscribeEvents` in `lib/api.ts` is an `EventSource` on `/api/v1/events?token=…` (reconnects when the stream closes). `use-server-events.ts` handles `order.*`, `payment.check_requested` (sound + toast) and `conversation.needs_owner` (toast with **Resume AI** → `POST /api/v1/conversations/{id}/resume-ai`).
+- `src/lib/types.ts` hand-writes the API shapes; replace with the generated `api-types.ts`. Money and coordinates are decimal strings from the API. Order items: `{id, menu_item_id, slug, name, unit_price, qty, note}` (name/price are snapshots).
+- Test orders without WhatsApp: `POST /dev/simulate` on the backend (`/docs`), the board updates live.
+
+## Mock data (offline design)
+
+- `src/lib/mock-api.ts` has the same exports as `lib/api.ts`, backed by memory and seeded from `src/lib/mock-data.ts` (Kak Ani Kitchen). State resets on reload. It also emits the order events and runs the expiry timer. Point the hooks' `* as api` import at it to design without a backend.
 - Queries only run when a token exists (`enabled` default in `components/providers.tsx`). The dashboard layout always renders the shell and page (loading state) on the server; it redirects to `/login` only once the browser confirms there is no token.
 
 ## Rules

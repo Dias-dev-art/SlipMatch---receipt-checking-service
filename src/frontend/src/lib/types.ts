@@ -25,11 +25,13 @@ export interface Customer {
   display_name: string | null;
 }
 
+/** Name and price are the snapshot taken when the item was ordered. */
 export interface OrderItem {
   id: string;
   menu_item_id: string;
-  name_snapshot: string;
-  unit_price_snapshot: Money;
+  slug: string;
+  name: string;
+  unit_price: Money;
   qty: number;
   note: string | null;
 }
@@ -42,8 +44,9 @@ export interface Order {
   status: OrderStatus;
   order_type: OrderType | null;
   address_text: string | null;
-  location_lat: number | null;
-  location_lng: number | null;
+  /** Decimal strings, like money. */
+  location_lat: string | null;
+  location_lng: string | null;
   items: OrderItem[];
   subtotal: Money;
   delivery_fee: Money;
@@ -137,4 +140,5 @@ export interface Me {
 export type ServerEvent =
   | { type: "order.created"; order_id: string }
   | { type: "order.updated"; order_id: string }
-  | { type: "payment.check_requested"; order_id: string };
+  | { type: "payment.check_requested"; order_id: string }
+  | { type: "conversation.needs_owner"; conversation_id: string };

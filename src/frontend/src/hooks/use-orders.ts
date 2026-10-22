@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { toastError } from "@/lib/errors";
-import * as api from "@/lib/mock-api";
+import * as api from "@/lib/api";
 import { t } from "@/lib/strings";
 
 export const orderKeys = { all: ["orders"] as const };
@@ -34,15 +34,5 @@ export function useOrderAction(action: OrderAction) {
     // 409 means someone else or the timer already changed it: refetch either way.
     onError: (error) => toastError(error),
     onSettled: () => queryClient.invalidateQueries({ queryKey: orderKeys.all }),
-  });
-}
-
-export function useSimulateCustomerPaid() {
-  return useMutation({
-    mutationFn: api.simulateCustomerPaid,
-    onSuccess: (order) => {
-      if (!order) toast.info(t.orders.simulateNone);
-    },
-    onError: (error) => toastError(error),
   });
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { BellRing } from "lucide-react";
 import { useState } from "react";
 
 import { OrderCard } from "@/components/orders/order-card";
@@ -10,7 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { useOrders, useSimulateCustomerPaid } from "@/hooks/use-orders";
+import { useOrders } from "@/hooks/use-orders";
 import { t } from "@/lib/strings";
 import type { Order } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -27,7 +26,6 @@ const sorters: Record<BoardStatus, (a: Order, b: Order) => number> = {
 
 export function OrderBoard() {
   const { data: orders, isPending, isError, refetch } = useOrders();
-  const simulate = useSimulateCustomerPaid();
   const [active, setActive] = useState<BoardStatus>("payment_check");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
@@ -40,12 +38,7 @@ export function OrderBoard() {
 
   return (
     <>
-      <PageHeader title={t.orders.title} description={t.orders.description}>
-        <Button variant="outline" size="sm" disabled={simulate.isPending} onClick={() => simulate.mutate()}>
-          <BellRing />
-          {t.orders.simulate}
-        </Button>
-      </PageHeader>
+      <PageHeader title={t.orders.title} description={t.orders.description} />
 
       {isError ? (
         <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
