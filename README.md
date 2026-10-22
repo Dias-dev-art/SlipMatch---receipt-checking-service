@@ -12,7 +12,7 @@
 | ---------------------- | ------------------------------------------- |
 | **Team Name**          | Quintuplets                                 |
 | **Team Domain**        | Domain 2                                    |
-| **SDG Track (1–17)**   | e.g. SDG 11 — Sustainable Cities and Communities |
+| **SDG Track 8**   | SDG 8 - Promote sustained, inclusive and sustainable economic growth, full and productive employment and decent work for all |
 | **Team Leader**        | Dias Zhumadilda                             |
 | **University**         | Xiamen University Malaysia                  |
 | **Number of Members**  | 5                                           |
