@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="640" viewBox="0 0 360 640" font-family="Arial, Helvetica, sans-serif">
+<rect width="360" height="640" fill="#f4f5f7"/>
+<rect width="360" height="56" fill="#1f2937"/>
+<text x="20" y="35" fill="#fff" font-size="16" font-weight="bold">Transfer receipt</text>
+<rect x="20" y="80" width="320" height="470" rx="14" fill="#fff"/>
+<circle cx="180" cy="140" r="30" fill="#16a34a"/>
+<path d="M166 141 l10 10 l20 -22" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180" y="200" text-anchor="middle" font-size="16" fill="#111827">Transfer successful</text>
+<text x="180" y="248" text-anchor="middle" font-size="34" font-weight="bold" fill="#111827">RM 17.00</text>
+<g font-size="13" fill="#6b7280">
+<text x="40" y="310">To</text><text x="320" y="310" text-anchor="end" fill="#111827">ANI BINTI AHMAD</text>
+<text x="40" y="345">Reference</text><text x="320" y="345" text-anchor="end" fill="#111827">A126</text>
+<text x="40" y="380">Date</text><text x="320" y="380" text-anchor="end" fill="#111827">21 Oct 2026, 7:58 PM</text>
+<text x="40" y="415">Transaction ID</text><text x="320" y="415" text-anchor="end" fill="#111827">MY20261021A12688</text>
+</g>
+<line x1="40" y1="445" x2="320" y2="445" stroke="#e5e7eb"/>
+<text x="180" y="485" text-anchor="middle" font-size="12" fill="#9ca3af">Mock screenshot for the Waitly demo</text>
+<text x="180" y="400" text-anchor="middle" font-size="64" font-weight="bold" fill="#ef4444" fill-opacity="0.12" transform="rotate(-25 180 400)">SAMPLE</text>
+</svg>

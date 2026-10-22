@@ -185,18 +185,54 @@ def test_menu_delete_is_soft_when_ordered(client, owner, llm):
     assert send(client, owner, "status?")["order"]["items"][0]["slug"] == "teh_tarik"
 
 
-def test_tool_name_written_as_text_is_not_sent(client, owner, llm):
-    llm.script(say("mark_paid_by_customer"), say("Thanks! The owner will check the payment."))
+def test_tool_name_inside_text_is_not_sent(client, owner, llm):
+    llm.script(say("I will call add_item for you"), say("Sure, one teh tarik?"))
     body = send(client, owner, "ok itu je")
-    assert body["reply"] == "Thanks! The owner will check the payment."
-    assert "mark_paid_by_customer" not in json.dumps(body["sent"])
+    assert body["reply"] == "Sure, one teh tarik?"
+    assert "add_item" not in json.dumps(body["sent"])
     assert llm.requests[1][-1]["role"] == "system"  # the correction
 
 
 def test_repeated_tool_text_falls_back(client, owner, llm):
-    llm.script(say('{"items": []}'), say("request_payment"))
+    llm.script(say('{"items": []}'), say('{"cart": []}'))
     body = send(client, owner, "ok")
     assert body["outcome"] == "fallback"
+
+
+def test_request_payment_written_as_text_is_run(client, owner, llm, session):
+    llm.script(
+        tools(
+            call("add_item", menu_item_id="nasi_lemak", qty=2),
+            call("set_order_type", type="pickup"),
+        ),
+        say("ok"),
+    )
+    send(client, owner, "2 nasi lemak tapau")
+    llm.script(say("request_payment"), say("Thank you!"))
+    body = send(client, owner, "itu je")
+    code = body["order"]["code"]
+    assert body["outcome"] == "reply" and body["order"]["status"] == "awaiting_payment"
+    assert body["sent"][0]["text"].startswith(f"Pay RM16.00, reference {code}")
+    assert body["sent"][-1]["text"] == "Thank you!"
+    assert "request_payment" not in json.dumps(body["sent"])
+    # the LLM saw the result as a normal tool result
+    assert llm.tool_results()[0]["payment_sent"] is True
+    ai = session.exec(select(Message).where(Message.sender == "ai")).all()[-1]
+    assert ai.payload["trace"][1]["recovered_text_tool"] == "request_payment"
+
+
+def test_mark_paid_written_as_text_without_payment_request(client, owner, llm):
+    llm.script(say("`mark_paid_by_customer`"), say("Please order first."))
+    body = send(client, owner, "dah bayar")
+    assert body["reply"] == "Please order first."
+    assert llm.tool_results()[0] == {"error": "no_payment_requested"}
+
+
+def test_text_tool_is_recovered_only_once(client, owner, llm):
+    llm.script(say("request_payment"), say("request_payment"), say("request_payment"))
+    body = send(client, owner, "ok")
+    assert body["outcome"] == "fallback"
+    assert "request_payment" not in json.dumps(body["sent"])
 
 
 @pytest.mark.parametrize(
@@ -229,6 +265,15 @@ def test_prompt_next_step_hint(client, owner, llm, status_setup, hint):
         "Your payment has been received.",
         "Pembayaran anda telah diterima",
         "Total RM15 <|im_start|><|im_start|>",
+        # seen live with the RunPod model
+        "Marked your order as paid. Your meal will be delivered soon. Enjoy your meal!",
+        "Your order is now paid, thank you!",
+        "Your payment was successful.",
+        "Marking as paid by customer. Terima kasih! Apa lagi adik nak?",
+        "Sudah, order anda kami markas sebagai sudah bayar. Terima kasih!",
+        "Pesanan anda sudah dibayar.",
+        "Saya sudah mendaftar pembayaran anda. Terima kasih!",
+        '/ionorf {"reason": "not related to ordering"}',
     ],
 )
 def test_bad_replies_are_never_sent(client, owner, llm, bad):
@@ -238,6 +283,17 @@ def test_bad_replies_are_never_sent(client, owner, llm, bad):
     assert bad not in json.dumps(body["sent"], ensure_ascii=False)
 
 
-def test_normal_reply_mentioning_payment_is_allowed(client, owner, llm):
-    llm.script(say("Please make the payment and tell us when done."))
+@pytest.mark.parametrize(
+    "ok",
+    [
+        "Please make the payment and tell us when done.",
+        "Once the payment is done, let me know.",
+        "Kalau sudah bayar, beritahu kami ya.",
+        "Bila dah bayar, beritahu kami. Owner akan semak.",
+        "Sila buat pembayaran anda dalam 10 minit.",
+        "Your order is set for pickup. Ready to pay?",
+    ],
+)
+def test_normal_reply_mentioning_payment_is_allowed(client, owner, llm, ok):
+    llm.script(say(ok))
     assert send(client, owner, "how to pay?")["outcome"] == "reply"

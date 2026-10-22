@@ -14,11 +14,15 @@ Base URL: `NEXT_PUBLIC_API_URL` (dev `http://localhost:8000`). All dashboard end
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/api/v1/business` | settings |
-| PATCH | `/api/v1/business` | delivery fee, pickup/delivery toggles, payment instructions, timeout, greeting |
-| POST | `/api/v1/business/payment-qr` | multipart image upload |
-| GET/POST/DELETE | `/api/v1/business/exclusions` | contact exclusion list |
-| PUT | `/api/v1/business/whatsapp` | `{phone_number_id, display_phone, access_token}`; token stored encrypted |
+| GET | `/api/v1/business` | settings, incl. `whatsapp: {phone_number_id, display_phone, coexistence} \| null` (never the token) and `payment_qr_url` (full URL or `null`) |
+| PATCH | `/api/v1/business` | partial: `name`, `delivery_enabled`, `delivery_fee`, `pickup_enabled`, `payment_instructions`, `unique_amount_cents`, `payment_timeout_minutes` (1–120), `greeting` (`""`/`null` clears). 422 if both pickup and delivery end up off |
+| POST | `/api/v1/business/payment-qr` | multipart `file`: PNG/JPEG/WebP ≤ 2 MB (415/413 otherwise); served publicly at `/media/...` |
+| GET | `/api/v1/business/exclusions` | contact exclusion list `[{id, wa_phone, label}]` |
+| POST | `/api/v1/business/exclusions` | `{wa_phone, label?}`; phone normalised to digits; 409 if already excluded |
+| DELETE | `/api/v1/business/exclusions/{id}` | |
+| PUT | `/api/v1/business/whatsapp` | `{phone_number_id, display_phone, access_token, coexistence?}`; token stored encrypted (503 without `TOKEN_ENCRYPTION_KEY`); 409 if the number belongs to another business |
+
+`/api/v1/auth/me` returns the same business object.
 
 ## Menu
 
@@ -43,32 +47,46 @@ Base URL: `NEXT_PUBLIC_API_URL` (dev `http://localhost:8000`). All dashboard end
 
 Invalid transitions return `409 Conflict`. Repeated clicks are safe.
 
-## Handoff inbox
+## Handoff
+
+There is no inbox page: the owner answers handed-off chats from the WhatsApp Business app (that
+echo pauses the AI for 24h). These endpoints list them and give a chat back to the AI.
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/api/v1/conversations?needs_owner=true` | chats the AI handed off |
-| GET | `/api/v1/conversations/{id}/messages` | history |
-| POST | `/api/v1/conversations/{id}/reply` | owner sends a manual message; pauses AI 24h |
-| POST | `/api/v1/conversations/{id}/resume-ai` | clear `needs_owner` and pause |
+| GET | `/api/v1/conversations?needs_owner=true` | chats the AI handed off: `{id, customer, needs_owner, handoff_reason, handoff_at, ai_paused_until, last_customer_message_at, last_message, created_at}`; most recent first |
+| GET | `/api/v1/conversations/{id}/messages` | history, oldest first (`?limit=`, default 100) |
+| POST | `/api/v1/conversations/{id}/resume-ai` | clear `needs_owner`, `handoff_reason`, `handoff_at` and `ai_paused_until` |
+
+A handoff nobody acts on resumes by itself 24h after `handoff_at` (timer job).
 
 ## Realtime
 
 `GET /api/v1/events` — SSE. Token via `?token=` query param (EventSource cannot set headers). Events: `order.created`, `order.updated`, `payment.check_requested`, `conversation.needs_owner`, with JSON `{order_id | conversation_id}`.
 
+## Media (public)
+
+`GET /media/<business_id>/<file>` serves uploaded payment QRs and downloaded customer screenshots.
+The DB stores the `/media/...` path; API responses and WhatsApp messages use
+`PUBLIC_BASE_URL + path`, so a new ngrok or hosting URL does not break old links.
+
 ## WhatsApp webhook (public)
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/webhook` | verification: if `hub.mode=subscribe` and `hub.verify_token` matches, return `hub.challenge` as plain text |
-| POST | `/webhook` | verify `X-Hub-Signature-256`, return 200 fast, process in background |
+| GET | `/webhook` | verification: if `hub.mode=subscribe` and `hub.verify_token` matches `WHATSAPP_VERIFY_TOKEN`, return `hub.challenge` as plain text; else 403 |
+| POST | `/webhook` | verify `X-Hub-Signature-256` with `WHATSAPP_APP_SECRET` (401 if wrong or missing), return 200 fast, process in background |
+
+Handled change fields: `messages` (text, interactive/button replies as text, location, image, audio → "text only" reply) and `smb_message_echoes` (owner typed in the WhatsApp Business app → AI paused 24h for that chat). Delivery `statuses` are ignored. Each message id is processed once (`processed_webhooks`).
 
 ## Dev only
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| POST | `/dev/simulate` | `{customer_phone, text}` (auth required, uses owner's business); returns `{reply, order}` |
+| POST | `/dev/simulate` | `{customer_phone, text}` (auth required, uses owner's business); returns `{reply, order, sent, outcome}` — `sent` is everything that would go to WhatsApp, `outcome` is `reply`, `ignored`, `handoff`, `fallback`, `needs_owner`, `ai_paused`, `excluded` or `unsupported_type` |
 | POST | `/dev/reset` | wipe conversations/orders for the business |
+
+Enabled when `ENV` is `dev` or `test`.
 
 ## AI tools (shared with the ML dataset — do not rename)
 

@@ -1,7 +1,10 @@
 """Tests run on a real Postgres DB `<DATABASE_URL db>_test`, built by the migrations."""
 
 import os
+import tempfile
+from pathlib import Path
 
+from cryptography.fernet import Fernet
 from sqlalchemy.engine import make_url
 
 from app.core.config import settings
@@ -12,7 +15,13 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL.render_as_string(hide_password=Fa
 settings.DATABASE_URL = os.environ["DATABASE_URL"]
 settings.ENV = "test"
 settings.JWT_SECRET = "test-secret-key-that-is-long-enough-for-hs256"
+settings.MEDIA_DIR = Path(tempfile.mkdtemp(prefix="orderagent-media-"))
+settings.PUBLIC_BASE_URL = "https://backend.test"
+settings.TOKEN_ENCRYPTION_KEY = Fernet.generate_key().decode()
+settings.WHATSAPP_APP_SECRET = "test-app-secret"
+settings.WHATSAPP_VERIFY_TOKEN = "test-verify-token"
 
+import httpx  # noqa: E402
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
@@ -24,6 +33,7 @@ from app.agent.llm import set_llm_client  # noqa: E402
 from app.core import db  # noqa: E402
 from app.core.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
+from app.services.whatsapp import set_transport  # noqa: E402
 from app.tests.fake_llm import ScriptedLLM  # noqa: E402
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -70,6 +80,18 @@ def llm():
     set_llm_client(fake)
     yield fake
     set_llm_client(None)
+
+
+@pytest.fixture(autouse=True)
+def no_real_whatsapp():
+    """Graph API calls fail loudly unless a test installs its own fake transport."""
+
+    def refuse(request):
+        raise AssertionError(f"unexpected call to {request.url}")
+
+    set_transport(httpx.MockTransport(refuse))
+    yield
+    set_transport(None)
 
 
 @pytest.fixture

@@ -14,7 +14,8 @@ from typing import Any
 from sqlmodel import Session, col, select
 
 from app.models import Business, Conversation, MenuItem, Order, OrderItem, OrderStatus, OrderType
-from app.services import orders, templates
+from app.models.base import utcnow
+from app.services import media, orders, templates
 
 log = logging.getLogger(__name__)
 
@@ -264,7 +265,7 @@ def request_payment(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
     except orders.MissingFields as exc:
         return {"error": "missing_fields", "fields": exc.fields}
     if ctx.business.payment_qr_url:
-        ctx.send_image(ctx.business.payment_qr_url, None)
+        ctx.send_image(media.absolute_url(ctx.business.payment_qr_url), None)
     ctx.send_text(templates.payment_request(order, ctx.business))
     return {
         "ok": True,
@@ -294,6 +295,7 @@ def handoff_to_owner(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
     reason = _text(args.get("reason")) or "no reason given"
     ctx.conversation.needs_owner = True
     ctx.conversation.handoff_reason = reason
+    ctx.conversation.handoff_at = utcnow()
     ctx.session.add(ctx.conversation)
     ctx.handoff = True
     ctx.flags.append("conversation.needs_owner")

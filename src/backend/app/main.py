@@ -6,11 +6,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import api_router, dev
 from app.core.config import settings
 from app.services import timers
 from app.services.orders import OrderError
+from app.webhook import router as webhook
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -45,6 +47,10 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(api_router)
+    app.include_router(webhook.router)
+    # payment QRs and customer screenshots; public so WhatsApp can fetch the QR by link
+    settings.MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/media", StaticFiles(directory=settings.MEDIA_DIR), name="media")
     if settings.ENV in ("dev", "test"):
         app.include_router(dev.router)
     return app

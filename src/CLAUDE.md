@@ -2,13 +2,13 @@
 
 Read this file first. Then read the doc for the area you are working on (paths are relative to `src/`):
 
-| Area | File |
-| --- | --- |
-| System design, message flow, AI agent loop | `ARCHITECTURE.md` |
-| Database tables and relations | `DATABASE.md` |
-| HTTP endpoints and AI tool contracts | `API.md` |
-| Backend conventions (FastAPI) | `backend/CLAUDE.md` |
-| Frontend conventions (Next.js) | `frontend/CLAUDE.md` |
+| Area                                          | File                  |
+| --------------------------------------------- | --------------------- |
+| System design, message flow, AI agent loop    | `ARCHITECTURE.md`     |
+| Database tables and relations                 | `DATABASE.md`         |
+| HTTP endpoints and AI tool contracts          | `API.md`              |
+| Backend conventions (FastAPI)                 | `backend/CLAUDE.md`   |
+| Frontend conventions (Next.js)                | `frontend/CLAUDE.md`  |
 | Fine-tuning + serving on RunPod (ML teammate) | `../runpod/CLAUDE.md` |
 
 ## What we are building
@@ -44,14 +44,16 @@ A SaaS for small food businesses in Malaysia. Customers order through the busine
 ```
 chatting ──(cart + order type + address complete, request_payment)──▶ awaiting_payment
 awaiting_payment ──(customer says "paid")──▶ payment_check
+awaiting_payment ──(customer changes the cart)──▶ chatting (payment request cancelled)
 awaiting_payment ──(10 min timeout)──▶ cancelled
 payment_check ──(owner: Approve)──▶ approved
 payment_check ──(owner: Not received)──▶ awaiting_payment (customer is told, timer restarts)
 payment_check ──(10 min, owner did nothing)──▶ cancelled
 cancelled ──(owner: Restore, money arrived late)──▶ payment_check
+chatting | awaiting_payment | payment_check ──(owner: Cancel)──▶ cancelled
 ```
 
-Any conversation can be flagged `needs_owner` (handoff) at any time. While flagged, the AI does not reply.
+Any conversation can be flagged `needs_owner` (handoff) at any time. While flagged, the AI does not reply. It answers again after **Resume AI** on the dashboard, 24h after the owner's last manual reply, or 24h after the handoff if nobody acted.
 
 ## Monorepo layout
 
@@ -77,17 +79,17 @@ Any conversation can be flagged `needs_owner` (handoff) at any time. While flagg
 
 ## Tech stack
 
-| Layer | Choice |
-| --- | --- |
-| Frontend | Next.js (App Router), React, TypeScript, Tailwind, shadcn/ui |
-| Backend | FastAPI, Python 3.12, Pydantic v2, SQLModel, Alembic |
-| Auth | JWT (OAuth2 password flow) in FastAPI, same pattern as the official Full Stack FastAPI Template; passwords hashed |
-| Database | PostgreSQL 16 (local via Docker; can be hosted on Supabase or any managed Postgres) |
-| Realtime to dashboard | Server-Sent Events (SSE) from FastAPI |
-| WhatsApp | Meta WhatsApp Cloud API (webhooks in, Graph API out) |
-| LLM (phase 1) | OpenRouter via the OpenAI-compatible SDK |
-| LLM (phase 2) | Our fine-tuned open-source model served by vLLM on RunPod (OpenAI-compatible) |
-| Local tunnel | ngrok, so Meta can reach the local webhook |
+| Layer                 | Choice                                                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Frontend              | Next.js (App Router), React, TypeScript, Tailwind, shadcn/ui                                                      |
+| Backend               | FastAPI, Python 3.12, Pydantic v2, SQLModel, Alembic                                                              |
+| Auth                  | JWT (OAuth2 password flow) in FastAPI, same pattern as the official Full Stack FastAPI Template; passwords hashed |
+| Database              | PostgreSQL 16 (local via Docker; can be hosted on Supabase or any managed Postgres)                               |
+| Realtime to dashboard | Server-Sent Events (SSE) from FastAPI                                                                             |
+| WhatsApp              | Meta WhatsApp Cloud API (webhooks in, Graph API out)                                                              |
+| LLM (phase 1)         | OpenRouter via the OpenAI-compatible SDK                                                                          |
+| LLM (phase 2)         | Our fine-tuned open-source model served by vLLM on RunPod (OpenAI-compatible)                                     |
+| Local tunnel          | ngrok, so Meta can reach the local webhook                                                                        |
 
 Switching LLMs must be a config change only: `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`. Never call a provider SDK directly from business logic.
 
@@ -112,6 +114,8 @@ DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/orderagent
 JWT_SECRET=change-me
 JWT_EXPIRE_MINUTES=10080
 FRONTEND_URL=http://localhost:3000
+PUBLIC_BASE_URL=http://localhost:8000   # how Meta reaches the backend (ngrok URL in dev); /media links
+# MEDIA_DIR=src/backend/media          # uploaded QRs + customer screenshots (default)
 
 LLM_BASE_URL=https://openrouter.ai/api/v1
 LLM_API_KEY=sk-or-...
@@ -120,7 +124,8 @@ LLM_MODEL=<model id on OpenRouter with tool calling support>
 WHATSAPP_VERIFY_TOKEN=any-random-string
 WHATSAPP_APP_SECRET=...            # to verify X-Hub-Signature-256
 WHATSAPP_GRAPH_VERSION=v21.0       # check the current version in Meta docs
-TOKEN_ENCRYPTION_KEY=...           # encrypts per-business WhatsApp tokens in DB
+TOKEN_ENCRYPTION_KEY=...           # Fernet key, encrypts per-business WhatsApp tokens in DB
+                                   # uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
