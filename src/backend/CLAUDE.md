@@ -31,23 +31,28 @@ backend/
     ├── schemas/             # request/response models
     ├── api/v1/              # auth, business, menu, orders, conversations, events, dev
     ├── webhook/
-    │   ├── router.py        # GET verify, POST receive (signature check, 200, background)
-    │   └── parser.py        # Meta payload → internal IncomingMessage
+    │   ├── router.py        # GET verify, POST receive (signature check, 200, background), dedupe
+    │   └── parser.py        # Meta payload → ParsedMessage / OwnerEcho
     ├── agent/
     │   ├── llm.py           # get_llm_client(), chat() wrapper, retries
     │   ├── prompt.py        # build system prompt from business + menu + order
     │   ├── tools.py         # TOOLS schemas (must match src/API.md exactly)
     │   ├── executor.py      # execute_tool(): validation + DB updates, returns JSON
-    │   └── loop.py          # run_agent(conversation, incoming) → reply text
+    │   └── loop.py          # run_agent(): tool loop, reply guard, text-tool recovery, fallback
     ├── services/
-    │   ├── pipeline.py      # handle_incoming(): idempotency, tenant, gatekeeping, agent, send
+    │   ├── pipeline.py      # handle_incoming(): exclusions, gatekeeping, agent, send; owner echoes
     │   ├── orders.py        # state machine transitions (the ONLY place status changes)
-    │   ├── whatsapp.py      # send_text, send_image, download_media
+    │   ├── whatsapp.py      # GraphClient (send_text, send_image, download_media), WhatsAppOutbox
+    │   ├── outbox.py        # Outbox protocol; get_outbox(session, business_id) for owner/timer messages
+    │   ├── notify.py        # fixed-template messages to a customer outside a reply
+    │   ├── handoff.py       # resume AI, owner takeover pause, 24h auto-resume
+    │   ├── media.py         # /media files (payment QR, screenshots), absolute URLs
     │   ├── templates.py     # fixed customer messages (confirmed, cancelled, not received)
     │   ├── events.py        # in-process pub/sub for SSE per business
-    │   └── timers.py        # expire orders loop
+    │   └── timers.py        # expire orders, auto-resume handoffs, forget old webhook ids
+    ├── evals/llm_scenarios.py  # real conversations against the configured LLM, PASS/FAIL
     ├── seed.py
-    └── tests/
+    └── tests/               # fake LLM (tests/fake_llm.py) + fake Graph API transport; no network
 ```
 
 ## Rules
@@ -70,7 +75,8 @@ uv run python -m app.seed
 uv run fastapi dev app/main.py       # http://localhost:8000/docs
 uv run pytest
 uv run ruff check . && uv run ruff format .
-ngrok http 8000                      # for Meta webhook in dev
+uv run python -m app.evals.llm_scenarios   # check the real LLM (uses LLM_* from .env)
+ngrok http 8000                      # for Meta webhook in dev (see docs/WHATSAPP_SETUP.md)
 ```
 
 ## Tests that must exist

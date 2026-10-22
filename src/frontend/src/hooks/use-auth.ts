@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import { setToken, useToken } from "@/lib/auth";
-import * as api from "@/lib/mock-api";
+import * as api from "@/lib/api";
 
 async function login(email: string, password: string) {
   const { access_token } = await api.login(email, password);

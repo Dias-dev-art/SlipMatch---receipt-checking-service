@@ -33,6 +33,8 @@ class Conversation(SQLModel, table=True):
     # handoff flag; AI silent while true
     needs_owner: bool = False
     handoff_reason: str | None = None
+    # when needs_owner was set; the AI resumes by itself 24h later
+    handoff_at: datetime | None = ts_field(nullable=True, default=None)
     # owner takeover
     ai_paused_until: datetime | None = ts_field(nullable=True, default=None)
     # for the 24h window

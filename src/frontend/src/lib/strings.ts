@@ -62,8 +62,6 @@ export const t = {
   orders: {
     title: "Orders",
     description: "Check your bank, then approve. That's the whole job.",
-    simulate: "Simulate payment",
-    simulateNone: "No orders are waiting for payment to simulate.",
     columns: {
       payment_check: "Check payment",
       awaiting_payment: "Awaiting payment",
@@ -139,6 +137,13 @@ export const t = {
     alertTitle: "Check payment",
     alertBody: "A customer says they paid. Check your bank.",
     alertView: "View",
+  },
+
+  handoff: {
+    title: "A chat needs you",
+    body: "The AI stopped replying to a customer. Answer them in the WhatsApp Business app, or let the AI continue.",
+    resume: "Resume AI",
+    resumed: "The AI will answer this customer again.",
   },
 
   menu: {

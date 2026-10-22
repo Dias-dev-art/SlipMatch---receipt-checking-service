@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { toastError } from "@/lib/errors";
-import * as api from "@/lib/mock-api";
+import * as api from "@/lib/api";
 import { t } from "@/lib/strings";
 import type { Business } from "@/lib/types";
 

@@ -1,2 +1,4 @@
 .pytest_cache/
 .ruff_cache/
+# uploaded payment QRs and customer screenshots
+media/

@@ -1,8 +1,14 @@
-"""Where messages to customers go. Dev/simulator collect them; step 6 adds WhatsApp."""
+"""Where messages to customers go: WhatsApp when the business connected a number, otherwise
+logged only. The dev simulator and tests collect them instead."""
 
 import logging
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+from sqlmodel import Session
+
+from app.services import whatsapp
 
 log = logging.getLogger(__name__)
 
@@ -27,21 +33,25 @@ class CollectingOutbox:
 
 
 class LogOutbox:
-    """Until WhatsApp is connected: the message is stored in the conversation and logged."""
+    """No WhatsApp number connected: the message is stored in the conversation and logged."""
 
     def send_text(self, to: str, text: str) -> None:
-        log.info("outbox (not sent, no WhatsApp yet): text to %s***", to[:4])
+        log.info("outbox (not sent, no WhatsApp number): text to %s***", to[:4])
 
     def send_image(self, to: str, image_url: str, caption: str | None = None) -> None:
-        log.info("outbox (not sent, no WhatsApp yet): image to %s***", to[:4])
+        log.info("outbox (not sent, no WhatsApp number): image to %s***", to[:4])
 
 
 _outbox: Outbox | None = None
 
 
-def get_outbox() -> Outbox:
+def get_outbox(session: Session, business_id: uuid.UUID) -> Outbox:
     """Outbox for messages not triggered by a customer message (owner actions, timers)."""
-    return _outbox or LogOutbox()
+    if _outbox is not None:
+        return _outbox
+    account = whatsapp.account_for_business(session, business_id)
+    client = whatsapp.client_for(account) if account else None
+    return whatsapp.WhatsAppOutbox(client) if client else LogOutbox()
 
 
 def set_outbox(outbox: Outbox | None) -> None:

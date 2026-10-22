@@ -1,6 +1,6 @@
-// In-memory stand-in for the FastAPI backend (src/API.md), so the dashboard can be designed
-// before the backend exists. Function names and shapes follow the real endpoints; swap the
-// imports in src/hooks/* to the real `lib/api.ts` when it lands. State resets on page reload.
+// In-memory stand-in for the FastAPI backend (src/API.md), for designing the dashboard offline.
+// The hooks use the real `lib/api.ts`; this file has the same exports, so pointing the
+// `* as api` imports in src/hooks/* back here works without a backend. State resets on reload.
 //
 
 import {
@@ -185,6 +185,11 @@ export async function simulateCustomerPaid(): Promise<Order | null> {
   if (!order) return null;
   markPaidByCustomer(order, "/mock/receipt-1.svg");
   return clone(order);
+}
+
+export async function resumeAi(conversationId: string): Promise<void> {
+  void conversationId; // the mock has no conversations
+  await wait(300);
 }
 
 function markPaidByCustomer(order: Order, proofUrl: string | null) {
