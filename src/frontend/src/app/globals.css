@@ -1,0 +1,171 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-status-check: var(--status-check);
+  --color-status-check-soft: var(--status-check-soft);
+  --color-status-check-foreground: var(--status-check-foreground);
+  --color-status-awaiting: var(--status-awaiting);
+  --color-status-awaiting-soft: var(--status-awaiting-soft);
+  --color-status-approved: var(--status-approved);
+  --color-status-approved-soft: var(--status-approved-soft);
+  --color-status-approved-foreground: var(--status-approved-foreground);
+  --color-status-cancelled: var(--status-cancelled);
+  --color-status-cancelled-soft: var(--status-cancelled-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Waitly palette: #0d1321 ink · #1d2d44 navy · #3e5c76 slate · #748cab steel · #f0ebd8 cream.
+ * Everything in the UI uses these tokens. Signal colors (amber, green, red) are the only extras,
+ * toned to sit with the palette. Use the tokens (bg-status-check, text-danger…), not raw Tailwind colors.
+ */
+:root {
+  --ink: #0d1321;
+  --navy: #1d2d44;
+  --slate: #3e5c76;
+  --steel: #748cab;
+  --cream: #f0ebd8;
+
+  --background: var(--cream);
+  --foreground: var(--ink);
+  --card: color-mix(in oklab, var(--cream) 40%, white);
+  --card-foreground: var(--ink);
+  --popover: color-mix(in oklab, var(--cream) 40%, white);
+  --popover-foreground: var(--ink);
+  --primary: var(--navy);
+  --primary-foreground: var(--cream);
+  --secondary: color-mix(in oklab, var(--steel) 18%, var(--cream));
+  --secondary-foreground: var(--navy);
+  --muted: color-mix(in oklab, var(--steel) 16%, var(--cream));
+  --muted-foreground: var(--slate);
+  --accent: color-mix(in oklab, var(--steel) 22%, var(--cream));
+  --accent-foreground: var(--ink);
+  --destructive: #b4413a;
+  --border: color-mix(in oklab, var(--steel) 40%, var(--cream));
+  --input: color-mix(in oklab, var(--steel) 50%, var(--cream));
+  --ring: var(--steel);
+  --chart-1: var(--navy);
+  --chart-2: var(--slate);
+  --chart-3: var(--steel);
+  --chart-4: var(--ink);
+  --chart-5: color-mix(in oklab, var(--steel) 50%, var(--cream));
+  --radius: 0.625rem;
+  --sidebar: var(--navy);
+  --sidebar-foreground: var(--cream);
+  --sidebar-primary: var(--steel);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: var(--slate);
+  --sidebar-accent-foreground: var(--cream);
+  --sidebar-border: color-mix(in oklab, var(--slate) 60%, var(--navy));
+  --sidebar-ring: var(--steel);
+
+  --status-check: #9a6514;
+  --status-check-foreground: var(--cream);
+  --status-awaiting: var(--slate);
+  --status-approved: #2f7d4f;
+  --status-approved-foreground: var(--cream);
+  --status-cancelled: #6f7787;
+  --danger: #b4413a;
+
+  /* Soft backgrounds follow whichever theme is active on <html>. */
+  --status-check-soft: color-mix(in oklab, var(--status-check) 16%, transparent);
+  --status-awaiting-soft: color-mix(in oklab, var(--status-awaiting) 16%, transparent);
+  --status-approved-soft: color-mix(in oklab, var(--status-approved) 16%, transparent);
+  --status-cancelled-soft: color-mix(in oklab, var(--status-cancelled) 16%, transparent);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+}
+
+.dark {
+  --background: var(--ink);
+  --foreground: var(--cream);
+  --card: color-mix(in oklab, var(--navy) 70%, var(--ink));
+  --card-foreground: var(--cream);
+  --popover: var(--navy);
+  --popover-foreground: var(--cream);
+  --primary: var(--steel);
+  --primary-foreground: var(--ink);
+  --secondary: var(--navy);
+  --secondary-foreground: var(--cream);
+  --muted: color-mix(in oklab, var(--slate) 35%, var(--ink));
+  --muted-foreground: color-mix(in oklab, var(--steel) 85%, var(--cream));
+  --accent: color-mix(in oklab, var(--slate) 45%, var(--ink));
+  --accent-foreground: var(--cream);
+  --destructive: #f07b72;
+  --border: color-mix(in oklab, var(--slate) 55%, var(--ink));
+  --input: color-mix(in oklab, var(--slate) 70%, var(--ink));
+  --ring: var(--steel);
+  --sidebar: color-mix(in oklab, var(--ink) 80%, black);
+  --sidebar-foreground: var(--cream);
+  --sidebar-primary: var(--steel);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: var(--navy);
+  --sidebar-accent-foreground: var(--cream);
+  --sidebar-border: color-mix(in oklab, var(--slate) 45%, var(--ink));
+  --sidebar-ring: var(--steel);
+
+  --status-check: #e8b04b;
+  --status-check-foreground: var(--ink);
+  --status-awaiting: color-mix(in oklab, var(--steel) 80%, var(--cream));
+  --status-approved: #5cb784;
+  --status-approved-foreground: var(--ink);
+  --status-cancelled: #8b94a3;
+  --danger: #f07b72;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
