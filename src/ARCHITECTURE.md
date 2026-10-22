@@ -19,7 +19,7 @@ Meta WhatsApp Cloud API ──POST /webhook──▶ FastAPI backend ◀──RE
 | FastAPI backend | Webhook, agent loop, tool validation, order state machine, timers, REST API for the dashboard, SSE events |
 | LLM | Understands the customer and chooses tool calls. Has no authority over data |
 | PostgreSQL | Businesses, owners, menus, customers, conversations, messages, orders |
-| Owner dashboard | Login, menu editor, live orders, approve/reject, settings, handoff inbox |
+| Owner dashboard | Login, menu editor, live orders, approve/reject, settings, "Resume AI" on handoff alerts (no inbox: the owner answers handed-off chats in the WhatsApp Business app) |
 
 ## One message, end to end
 
@@ -56,7 +56,10 @@ loop (max 6 iterations):
 - Only available menu items are included. When the owner toggles "sold out", the AI stops offering it immediately.
 - Tool results are JSON. Errors are normal results the LLM must react to, e.g. `{"error":"not_on_menu","item":"palau","suggestions":["nasi_lemak"]}`.
 - If the loop hits the iteration limit or the LLM errors, send a fixed fallback message and flag `needs_owner`.
+- **Reply guard** (`agent/loop.py`): a text reply is never sent if it contains a tool name, JSON or chat-template tokens, or claims the payment is received/confirmed/paid (English and Malay). The model gets one correction; a second bad reply → fallback.
+- **Text tool recovery**: if the whole reply is just `request_payment` or `mark_paid_by_customer` (small models do this), the backend runs that tool through the normal executor once per turn and lets the model reply to the result.
 - Keep the LLM client behind `get_llm_client()` so OpenRouter and the vLLM endpoint are interchangeable.
+- `uv run python -m app.evals.llm_scenarios` runs real conversations against the configured model with PASS/FAIL checks.
 
 ## Tools
 
@@ -90,16 +93,25 @@ Screenshots are shown to the owner as a hint only. The AI must never say "paymen
 
 ## Timers
 
-A background job runs every 30–60 seconds: select orders in `awaiting_payment` or `payment_check` where `expires_at < now()`, move them to `cancelled`, send the cancellation template, emit SSE. Use `SELECT ... FOR UPDATE SKIP LOCKED` so two workers never cancel the same order twice. For the hackathon an asyncio loop started in the FastAPI lifespan is enough.
+A background job runs every 30 seconds: select orders in `awaiting_payment` or `payment_check` where `expires_at < now()`, move them to `cancelled`, send the cancellation template, emit SSE. Use `SELECT ... FOR UPDATE SKIP LOCKED` so two workers never cancel the same order twice. For the hackathon an asyncio loop started in the FastAPI lifespan is enough. The same loop resumes handoffs older than 24h and forgets `processed_webhooks` rows older than 7 days.
+
+Messages not triggered by a customer message (owner actions, timers) go through `get_outbox(session, business_id)`: WhatsApp when the business has connected a number, otherwise only stored and logged.
 
 ## Friend vs customer
 
 Default assumption: everyone who writes to a business number is a customer. Extra protection:
 
 1. **Dedicated business number** (recommended): only customers write to it.
-2. **Exclusion list**: owner marks numbers "never auto-reply" in settings.
-3. **Owner takeover**: with WhatsApp Coexistence, messages the owner sends from the WhatsApp Business app arrive as echo events. When the owner replies manually in a chat, set `ai_paused_until = now + 24h` for that conversation.
+2. **Exclusion list**: owner marks numbers "never auto-reply" in settings. Messages from them are not stored and never reach the LLM.
+3. **Owner takeover**: with WhatsApp Coexistence, messages the owner sends from the WhatsApp Business app arrive as `smb_message_echoes` events. When the owner replies manually in a chat, the message is stored (`sender=owner`), `needs_owner` is cleared and `ai_paused_until = now + 24h`.
 4. **Intent check**: the LLM calls `ignore_or_flag` for non-order chats.
+
+## Handoff recovery
+
+A chat flagged `needs_owner` (handoff or fallback) goes back to the AI when:
+- the owner presses **Resume AI** (dashboard toast on `conversation.needs_owner`, `POST /api/v1/conversations/{id}/resume-ai`), or
+- the owner replies from the WhatsApp Business app (24h pause, then the AI answers again), or
+- nobody acted on it for 24h after `handoff_at` (timer job).
 
 ## Multi-tenancy
 
@@ -115,8 +127,8 @@ Default assumption: everyone who writes to a business number is a customer. Extr
 
 ## Realtime to dashboard
 
-`GET /events` (SSE, authenticated) streams events for the owner's business: `order.created`, `order.updated`, `payment.check_requested`, `conversation.needs_owner`. The dashboard re-fetches or patches state on each event and plays a sound on `payment.check_requested`.
+`GET /api/v1/events` (SSE, token in `?token=`) streams events for the owner's business: `order.created`, `order.updated`, `payment.check_requested`, `conversation.needs_owner`. The dashboard re-fetches on each event, plays a sound on `payment.check_requested`, and shows a "Resume AI" toast on `conversation.needs_owner`.
 
 ## Dev simulator
 
-`POST /dev/simulate` (enabled only when `ENV=dev`) takes `{business_id, customer_phone, text}` and runs exactly the same pipeline as the webhook, but returns the reply instead of sending it to WhatsApp. The dashboard has a "Test chat" page using it. Build and test the agent with this before connecting WhatsApp.
+`POST /dev/simulate` (enabled when `ENV` is `dev` or `test`) takes `{customer_phone, text}`, uses the logged-in owner's business, and runs exactly the same pipeline as the webhook, but returns what would be sent instead of sending it to WhatsApp. There is no Test chat page in the dashboard; call it from `/docs` or with curl. Build and test the agent with this before connecting WhatsApp.
