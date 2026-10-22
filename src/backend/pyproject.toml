@@ -1,0 +1,45 @@
+[project]
+name = "orderagent-backend"
+version = "0.1.0"
+description = "WhatsApp AI Order Agent backend"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.20.0",
+    "fastapi[standard]>=0.158.0",
+    "openai>=3.36.1",
+    "psycopg[binary]>=3.3.6",
+    "pwdlib[argon2,bcrypt]>=0.3.1",
+    "pydantic-settings>=2.16.1",
+    "pyjwt>=2.15.1",
+    "sqlmodel>=0.0.48",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]
+known-first-party = ["app"]
+
+[tool.ruff.lint.per-file-ignores]
+# prompt text and tool schemas are kept verbatim (shared with the ML dataset)
+"app/agent/prompt.py" = ["E501"]
+"app/agent/tools.py" = ["E501"]
