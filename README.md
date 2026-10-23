@@ -1,5 +1,3 @@
-
-
 # Project Name
 
 > A one-sentence description of what your project does and who it is for.
@@ -8,14 +6,14 @@
 
 ## Team Information
 
-| Field                  | Details                                     |
-| ---------------------- | ------------------------------------------- |
-| **Team Name**          | Quintuplets                                 |
-| **Team Domain**        | Domain 2                                    |
-| **SDG Track 8**   | SDG 8 - Promote sustained, inclusive and sustainable economic growth, full and productive employment and decent work for all |
-| **Team Leader**        | Dias Zhumadilda                             |
-| **University**         | Xiamen University Malaysia                  |
-| **Number of Members**  | 5                                           |
+| Field                 | Details                                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Team Name**         | Quintuplets                                                                                                                  |
+| **Team Domain**       | Domain 2                                                                                                                     |
+| **SDG Track 8**       | SDG 8 - Promote sustained, inclusive and sustainable economic growth, full and productive employment and decent work for all |
+| **Team Leader**       | Dias Zhumadilda                                                                                                              |
+| **University**        | Xiamen University Malaysia                                                                                                   |
+| **Number of Members** | 5                                                                                                                            |
 
 ## Links
 
@@ -33,6 +31,7 @@
 ## Overview
 
 ### Problem
+
 The payment proof that the Malaysian micro-sellers receive when they receive orders through WhatsApp are usually screenshots of the DuitNow or bank transaction, and dozens of times per day. For each of these, the owner must open a bank app and locate the corresponding transfer, and verify it against the right order, which requires 6 steps or so and is typically done late at night. It's slow and prone to error: an incorrect amount can be missed; failed payment or the same image twice and sellers could end up with goods sent to an empty wallet. It impacts home-based sellers, small caterers and other micro and small businesses without accounting employees or payment-gateway integrations.
 
 ### Solution
@@ -47,13 +46,13 @@ SlipMatch is an Orbyte module that leverages a vision AI model (Qwen2.5-VL-7B) o
 
 ### Tech Stack
 
-| Layer         | Technology                   |
-| ------------- | ---------------------------- |
-| Frontend      | HTML, React                  |
-| Backend       | Python, FastAPI              |
-| Database      | PostgreSQL                   |
-| AI / Compute  | RunPod (GPU)                 |
-| Hosting / Dev | Replit                       |
+| Layer         | Technology      |
+| ------------- | --------------- |
+| Frontend      | HTML, React     |
+| Backend       | Python, FastAPI |
+| Database      | PostgreSQL      |
+| AI / Compute  | RunPod (GPU)    |
+| Hosting / Dev | Replit          |
 
 ---
 
@@ -137,7 +136,7 @@ python -m unittest discover test
 
 ---
 
-## How We Use Replit *(Required)*
+## How We Use Replit _(Required)_
 
 Describe how your team used Replit. For example:
 
@@ -147,7 +146,7 @@ Describe how your team used Replit. For example:
 
 📄 Proof of use: [`submission/SDC2026_TeamName_Replit_POU.pdf`](submission/SDC2026_TeamName_Replit_POU.pdf)
 
-## How We Use RunPod *(Required)*
+## How We Use RunPod _(Required)_
 
 Describe how your team used RunPod. For example:
 
@@ -204,3 +203,71 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 ## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
+
+## How to Run (Local)
+
+### Prerequisites
+
+- Docker Desktop (running)
+- [uv](https://docs.astral.sh/uv/) (Python)
+- Node.js + npm
+- ngrok
+
+### First-time setup
+
+```powershell
+copy .env.example .env      # then fill in your values
+cd src\backend
+uv sync
+cd ..\frontend
+npm install
+```
+
+### Start the project
+
+Run each block in its own terminal, starting from the repo root.
+
+**1. Database**
+
+```powershell
+docker compose up -d db
+cd src\backend
+uv run alembic upgrade head
+```
+
+**2. Backend** → http://localhost:8000 (docs at `/docs`)
+
+```powershell
+cd src\backend
+uv run fastapi dev app/main.py --port 8000
+```
+
+**3. ngrok** (public URL for the WhatsApp webhook)
+
+```powershell
+ngrok http 8000
+```
+
+> If the ngrok URL changes:
+>
+> 1. Update `PUBLIC_BASE_URL` in `.env`.
+> 2. Restart the backend.
+> 3. Update the webhook URL in the Meta dashboard.
+
+**4. Frontend** → http://localhost:3000
+
+```powershell
+cd src\frontend
+npm run dev
+```
+
+Demo login: `demo@demo.my` / `demo1234`
+
+### Stop the project
+
+- Press `Ctrl+C` in the backend, ngrok and frontend terminals.
+- Stop the database (data is kept in the `pgdata` volume):
+  ```powershell
+  docker compose down
+  ```
+  Don't add `-v`, because that deletes the database data.
