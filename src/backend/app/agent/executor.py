@@ -13,7 +13,16 @@ from typing import Any
 
 from sqlmodel import Session, col, select
 
-from app.models import Business, Conversation, MenuItem, Order, OrderItem, OrderStatus, OrderType
+from app.models import (
+    Business,
+    Conversation,
+    Customer,
+    MenuItem,
+    Order,
+    OrderItem,
+    OrderStatus,
+    OrderType,
+)
 from app.models.base import utcnow
 from app.services import media, orders, templates
 
@@ -30,6 +39,8 @@ class ToolContext:
     conversation: Conversation
     send_text: Callable[[str], None]
     send_image: Callable[[str, str | None], None]
+    # sends the text with Telegram's "Share phone number" button; None = no phone needed
+    ask_phone: Callable[[str], None] | None = None
     handoff: bool = False
     ignored: bool = False
     flags: list[str] = field(default_factory=list)
@@ -260,10 +271,38 @@ def request_payment(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
             "total": _money(order.total),
             "payment_sent": False,
         }
+    missing = orders.missing_fields(ctx.session, order)
+    if missing:
+        return {"error": "missing_fields", "fields": missing}
+    customer = ctx.session.get(Customer, ctx.conversation.customer_id)
+    if ctx.ask_phone is not None and not customer.phone:
+        # the payment details go out once the customer taps "Share phone number"
+        ctx.ask_phone(templates.phone_request(order, orders.cart_lines(ctx.session, order)))
+        return {
+            "error": "phone_needed",
+            "note": "A button to share the phone number was sent. Ask the customer to tap it.",
+        }
     try:
         orders.request_payment(ctx.session, order, ctx.business)
     except orders.MissingFields as exc:
         return {"error": "missing_fields", "fields": exc.fields}
+    if ctx.business.payment_qr_url:
+        ctx.send_image(media.absolute_url(ctx.business.payment_qr_url), None)
+    ctx.send_text(templates.payment_request(order, ctx.business))
+    return {
+        "ok": True,
+        "status": order.status.value,
+        "code": order.code,
+        "total": _money(order.total),
+        "payment_sent": True,
+    }
+
+
+def resend_payment_details(ctx: ToolContext) -> dict[str, Any]:
+    """The customer asks for the QR again. Not an LLM tool: only code calls it."""
+    order = ctx.order
+    if order is None or order.status != OrderStatus.awaiting_payment:
+        return {"error": "no_payment_requested"}
     if ctx.business.payment_qr_url:
         ctx.send_image(media.absolute_url(ctx.business.payment_qr_url), None)
     ctx.send_text(templates.payment_request(order, ctx.business))

@@ -10,6 +10,7 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.models import Business, Owner
 from app.schemas.auth import OwnerOut, OwnerWithBusiness, RegisterIn, Token
 from app.schemas.business import business_out
+from app.services.shops import unique_shop_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -28,13 +29,17 @@ def register(body: RegisterIn, session: SessionDep) -> OwnerWithBusiness:
     owner = Owner(
         email=email, hashed_password=hash_password(body.password), full_name=body.full_name
     )
-    business = Business(owner_id=owner.id, name=body.business_name)
+    business = Business(
+        owner_id=owner.id,
+        name=body.business_name,
+        shop_code=unique_shop_code(session, body.business_name),
+    )
     session.add(owner)
     session.flush()
     session.add(business)
     try:
         session.commit()
-    except IntegrityError:  # two registrations with the same email at once
+    except IntegrityError:  # two registrations with the same email (or shop code) at once
         session.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered") from None
     session.refresh(owner)

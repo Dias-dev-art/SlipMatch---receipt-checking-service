@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-me"
     JWT_EXPIRE_MINUTES: int = 10080
     FRONTEND_URL: str = "http://localhost:3000"
-    # how Meta and the dashboard reach this backend (ngrok URL in dev); used for /media links
+    # how Telegram and the dashboard reach this backend (ngrok URL in dev); webhook + /media links
     PUBLIC_BASE_URL: str = "http://localhost:8000"
     # the exported dashboard (`npm run build` in src/frontend); served at / when it exists
     FRONTEND_DIST: Path = REPO_ROOT / "src" / "frontend" / "out"
@@ -24,10 +24,14 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = ""
     LLM_MODEL: str = ""
 
-    WHATSAPP_VERIFY_TOKEN: str = ""
-    WHATSAPP_APP_SECRET: str = ""
-    WHATSAPP_GRAPH_VERSION: str = "v21.0"
-    TOKEN_ENCRYPTION_KEY: str = ""
+    # one Telegram bot (from @BotFather) that customers of every business order through
+    TELEGRAM_BOT_TOKEN: str = ""
+    # without @; shop links are t.me/<username>?start=<shop_code>
+    TELEGRAM_BOT_USERNAME: str = ""
+    # Telegram sends it back in X-Telegram-Bot-Api-Secret-Token on every webhook call
+    TELEGRAM_WEBHOOK_SECRET: str = ""
+    # shop_code for chats that opened the bot without a shop link (demo: one shop)
+    TELEGRAM_DEFAULT_SHOP: str = ""
 
     @field_validator("DATABASE_URL")
     @classmethod

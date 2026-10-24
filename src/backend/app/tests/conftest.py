@@ -2,7 +2,6 @@
 
 import os
 
-from cryptography.fernet import Fernet
 from sqlalchemy.engine import make_url
 
 from app.core.config import settings
@@ -14,9 +13,11 @@ settings.DATABASE_URL = os.environ["DATABASE_URL"]
 settings.ENV = "test"
 settings.JWT_SECRET = "test-secret-key-that-is-long-enough-for-hs256"
 settings.PUBLIC_BASE_URL = "https://backend.test"
-settings.TOKEN_ENCRYPTION_KEY = Fernet.generate_key().decode()
-settings.WHATSAPP_APP_SECRET = "test-app-secret"
-settings.WHATSAPP_VERIFY_TOKEN = "test-verify-token"
+# no bot token by default: owner actions only log; test_telegram.py turns the bot on
+settings.TELEGRAM_BOT_TOKEN = ""
+settings.TELEGRAM_BOT_USERNAME = "TestShopBot"
+settings.TELEGRAM_WEBHOOK_SECRET = "test-webhook-secret"
+settings.TELEGRAM_DEFAULT_SHOP = ""
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402
@@ -30,7 +31,7 @@ from app.agent.llm import set_llm_client  # noqa: E402
 from app.core import db  # noqa: E402
 from app.core.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
-from app.services.whatsapp import set_transport  # noqa: E402
+from app.telegram.client import set_transport  # noqa: E402
 from app.tests.fake_llm import ScriptedLLM  # noqa: E402
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -80,8 +81,8 @@ def llm():
 
 
 @pytest.fixture(autouse=True)
-def no_real_whatsapp():
-    """Graph API calls fail loudly unless a test installs its own fake transport."""
+def no_real_telegram():
+    """Bot API calls fail loudly unless a test installs its own fake transport."""
 
     def refuse(request):
         raise AssertionError(f"unexpected call to {request.url}")

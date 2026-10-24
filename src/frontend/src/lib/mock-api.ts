@@ -5,22 +5,23 @@
 
 import {
   seedBusiness,
-  seedExclusions,
+  seedConversations,
   seedMenu,
+  seedMessages,
   seedOrders,
   seedOwner,
 } from "@/lib/mock-data";
 import type {
   Business,
   BusinessPatch,
-  Exclusion,
+  Conversation,
+  ConversationMessage,
   Me,
   MenuItem,
   MenuItemInput,
   Order,
   OrderStatus,
   ServerEvent,
-  WhatsAppInput,
 } from "@/lib/types";
 
 export class ApiError extends Error {
@@ -39,7 +40,8 @@ const db = {
   business: structuredClone(seedBusiness),
   menu: structuredClone(seedMenu),
   orders: structuredClone(seedOrders),
-  exclusions: structuredClone(seedExclusions),
+  conversations: structuredClone(seedConversations),
+  messages: structuredClone(seedMessages),
 };
 
 let seq = 1000;
@@ -187,9 +189,55 @@ export async function simulateCustomerPaid(): Promise<Order | null> {
   return clone(order);
 }
 
+function findConversation(id: string): Conversation {
+  const conversation = db.conversations.find((c) => c.id === id);
+  if (!conversation) throw new ApiError(404, "Conversation not found");
+  return conversation;
+}
+
+export async function getConversations(needsOwner?: boolean): Promise<Conversation[]> {
+  await wait();
+  return clone(
+    db.conversations.filter((c) => needsOwner === undefined || c.needs_owner === needsOwner),
+  );
+}
+
+export async function getConversationMessages(id: string): Promise<ConversationMessage[]> {
+  await wait();
+  findConversation(id);
+  return clone(db.messages[id] ?? []);
+}
+
+export async function replyToConversation(id: string, text: string): Promise<Conversation> {
+  await wait(400);
+  const conversation = findConversation(id);
+  const body = `👩‍🍳 ${db.business.name}:\n${text.trim()}`;
+  (db.messages[id] ??= []).push({
+    id: newId("msg"),
+    direction: "out",
+    sender: "owner",
+    type: "text",
+    body,
+    created_at: now(),
+  });
+  Object.assign(conversation, {
+    needs_owner: false,
+    handoff_reason: null,
+    handoff_at: null,
+    ai_paused_until: inMinutes(15),
+    last_message: body,
+  });
+  return clone(conversation);
+}
+
 export async function resumeAi(conversationId: string): Promise<void> {
-  void conversationId; // the mock has no conversations
   await wait(300);
+  Object.assign(findConversation(conversationId), {
+    needs_owner: false,
+    handoff_reason: null,
+    handoff_at: null,
+    ai_paused_until: null,
+  });
 }
 
 function markPaidByCustomer(order: Order, proofUrl: string | null) {
@@ -267,34 +315,4 @@ export async function uploadPaymentQr(file: File): Promise<Business> {
   await wait(600);
   db.business.payment_qr_url = URL.createObjectURL(file);
   return clone(db.business);
-}
-
-export async function putWhatsApp(input: WhatsAppInput): Promise<Business> {
-  await wait(500);
-  db.business.whatsapp = {
-    phone_number_id: input.phone_number_id,
-    display_phone: input.display_phone,
-    coexistence: db.business.whatsapp?.coexistence ?? false,
-  };
-  return clone(db.business);
-}
-
-export async function getExclusions(): Promise<Exclusion[]> {
-  await wait();
-  return clone(db.exclusions);
-}
-
-export async function addExclusion(input: Omit<Exclusion, "id">): Promise<Exclusion> {
-  await wait(300);
-  if (db.exclusions.some((e) => e.wa_phone === input.wa_phone)) {
-    throw new ApiError(409, "already_excluded");
-  }
-  const exclusion = { ...input, id: newId("exc") };
-  db.exclusions.push(exclusion);
-  return clone(exclusion);
-}
-
-export async function removeExclusion(id: string): Promise<void> {
-  await wait(300);
-  db.exclusions = db.exclusions.filter((e) => e.id !== id);
 }

@@ -55,12 +55,12 @@ def resume_stale_handoffs() -> int:
 
 
 def forget_old_webhooks() -> int:
-    """Meta stops retrying long before 7 days, so old message ids can go."""
+    """Telegram stops retrying long before 7 days, so old update ids can go."""
     with Session(db.engine) as session:
         removed = session.exec(
             delete(ProcessedWebhook)
             .where(col(ProcessedWebhook.received_at) < utcnow() - WEBHOOK_MEMORY)
-            .returning(ProcessedWebhook.wa_message_id)
+            .returning(ProcessedWebhook.update_key)
         ).all()
         session.commit()
     return len(removed)

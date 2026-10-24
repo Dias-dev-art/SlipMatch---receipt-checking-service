@@ -3,6 +3,7 @@
 import { Countdown } from "@/components/orders/countdown";
 import {
   OrderActions,
+  CustomerContact,
   OrderAddress,
   OrderItems,
   OrderOutcome,
@@ -12,7 +13,7 @@ import {
 } from "@/components/orders/order-parts";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { customerName, formatMYR, formatPhone, formatRelative } from "@/lib/format";
+import { customerHandle, customerName, formatMYR, formatRelative } from "@/lib/format";
 import type { Order } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +37,8 @@ export function OrderCard({ order }: { order: Order }) {
             <OrderTypeBadge type={order.order_type} />
           </div>
           <p className="mt-1.5 truncate text-xs text-muted-foreground">
-            <span title={formatPhone(order.customer.wa_phone)}>{customerName(order.customer)}</span>
+            <span>{customerName(order.customer)}</span>
+            {customerHandle(order.customer) && ` ${customerHandle(order.customer)}`}
             {" · "}
             {formatRelative(order.created_at)}
           </p>
@@ -59,6 +61,7 @@ export function OrderCard({ order }: { order: Order }) {
       )}
 
       <OrderAddress order={order} className="px-3" />
+      <CustomerContact customer={order.customer} className="px-3" />
       <ProofThumbnail order={order} className="mx-3" />
       <OrderOutcome order={order} className="px-3" />
 

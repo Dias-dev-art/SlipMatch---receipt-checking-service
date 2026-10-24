@@ -13,14 +13,17 @@ from app.models.base import id_field, pg_enum, ts_field
 class Customer(SQLModel, table=True):
     __tablename__ = "customers"
     __table_args__ = (
-        UniqueConstraint("business_id", "wa_phone", name="uq_customers_business_phone"),
+        UniqueConstraint("business_id", "tg_chat_id", name="uq_customers_business_chat"),
     )
 
     id: uuid.UUID = id_field()
-    # same phone can be a customer of many businesses
+    # the same Telegram user can be a customer of many businesses
     business_id: uuid.UUID = Field(foreign_key="businesses.id", index=True)
-    wa_phone: str  # E.164 without +
-    display_name: str | None = None
+    tg_chat_id: str
+    tg_username: str | None = None  # without @; not every Telegram user has one
+    # shared by the customer with Telegram's button at checkout; digits, E.164 without +
+    phone: str | None = None
+    display_name: str | None = None  # Telegram first + last name
     created_at: datetime = ts_field()
 
 
@@ -71,7 +74,7 @@ class Message(SQLModel, table=True):
     conversation_id: uuid.UUID = Field(foreign_key="conversations.id")
     direction: Direction = Field(sa_type=pg_enum(Direction, "message_direction"))
     sender: Sender = Field(sa_type=pg_enum(Sender, "message_sender"))
-    wa_message_id: str | None = None
+    tg_message_id: str | None = None
     type: MessageType = Field(
         default=MessageType.text, sa_type=pg_enum(MessageType, "message_type")
     )

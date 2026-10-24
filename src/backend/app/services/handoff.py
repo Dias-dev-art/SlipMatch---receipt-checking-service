@@ -2,7 +2,10 @@
 
 - handoff / fallback: `needs_owner` is set (AI silent) until the owner presses Resume AI,
   or by itself 24h after `handoff_at`.
-- owner takeover: the owner typed in the WhatsApp Business app, so the AI pauses for 24h.
+- owner takeover: the owner replied from the dashboard chat, so the AI pauses while they talk:
+  15 minutes after their last reply (`ai_paused_until`). Closing the chat panel, Resume AI or
+  the customer's /start end it at once. Seen live: a 24h pause left the customer unanswered
+  after the owner was done.
 """
 
 from datetime import timedelta
@@ -13,7 +16,7 @@ from app.models import Conversation
 from app.models.base import utcnow
 
 AUTO_RESUME_AFTER = timedelta(hours=24)
-OWNER_TAKEOVER_PAUSE = timedelta(hours=24)
+OWNER_TAKEOVER_PAUSE = timedelta(minutes=15)
 
 
 def resume_ai(conversation: Conversation) -> None:
@@ -24,7 +27,7 @@ def resume_ai(conversation: Conversation) -> None:
 
 
 def owner_took_over(conversation: Conversation) -> None:
-    """The owner is answering by hand: the handoff is being handled; AI back after the pause."""
+    """The owner is answering by hand: the handoff is handled; the AI is back after the pause."""
     conversation.needs_owner = False
     conversation.handoff_reason = None
     conversation.handoff_at = None

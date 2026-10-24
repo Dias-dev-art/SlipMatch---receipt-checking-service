@@ -1,7 +1,7 @@
 """handle_incoming(): one customer message, end to end.
 
-Used by both /dev/simulate and the WhatsApp webhook; only the injected `Outbox` differs
-(collect replies vs send through the Graph API). This keeps the simulator honest.
+Used by both /dev/simulate and the Telegram webhook; only the injected `Outbox` differs
+(collect replies vs send through the Bot API). This keeps the simulator honest.
 """
 
 import logging
@@ -12,22 +12,23 @@ from typing import Any
 
 from sqlmodel import Session, col, select
 
-from app.agent.executor import ToolContext
+from app.agent.executor import ToolContext, execute_tool
 from app.agent.loop import Outcome, run_agent
 from app.models import (
     ACTIVE_STATUSES,
     Business,
-    ContactExclusion,
     Conversation,
     Customer,
     Direction,
     Message,
     MessageType,
     Order,
+    OrderStatus,
     Sender,
 )
 from app.models.base import utcnow
 from app.services import events, handoff, orders, templates
+from app.services.menu import available_items
 from app.services.outbox import CollectingOutbox, Outbox  # noqa: F401  (re-export)
 
 log = logging.getLogger(__name__)
@@ -35,18 +36,23 @@ log = logging.getLogger(__name__)
 HISTORY_LIMIT = 20
 
 
-def mask_phone(phone: str) -> str:
-    return phone[:4] + "*" * max(len(phone) - 7, 0) + phone[-3:] if len(phone) > 7 else "***"
+def mask_id(chat_id: str) -> str:
+    """Customer chat ids are personal data: never log them in full."""
+    return (
+        chat_id[:3] + "*" * max(len(chat_id) - 5, 0) + chat_id[-2:] if len(chat_id) > 5 else "***"
+    )
 
 
 @dataclass
 class IncomingMessage:
     business_id: uuid.UUID
-    customer_phone: str
+    chat_id: str  # Telegram chat id of the customer
     type: MessageType = MessageType.text
     text: str | None = None
     display_name: str | None = None
-    wa_message_id: str | None = None
+    username: str | None = None  # Telegram @username, without @
+    phone: str | None = None  # known phone (the simulator); Telegram shares it via handle_contact
+    message_id: str | None = None
     latitude: Decimal | None = None
     longitude: Decimal | None = None
     media_id: str | None = None
@@ -98,20 +104,21 @@ def _get_customer(session: Session, incoming: IncomingMessage) -> Customer:
     customer = session.exec(
         select(Customer).where(
             Customer.business_id == incoming.business_id,
-            Customer.wa_phone == incoming.customer_phone,
+            Customer.tg_chat_id == incoming.chat_id,
         )
     ).first()
     if customer is None:
-        customer = Customer(
-            business_id=incoming.business_id,
-            wa_phone=incoming.customer_phone,
-            display_name=incoming.display_name,
-        )
-        session.add(customer)
-        session.flush()
-    elif incoming.display_name and customer.display_name != incoming.display_name:
-        customer.display_name = incoming.display_name
-        session.add(customer)
+        customer = Customer(business_id=incoming.business_id, tg_chat_id=incoming.chat_id)
+    # Telegram names and usernames can change; keep the latest
+    for attr, value in (
+        ("display_name", incoming.display_name),
+        ("tg_username", incoming.username),
+        ("phone", incoming.phone),
+    ):
+        if value and getattr(customer, attr) != value:
+            setattr(customer, attr, value)
+    session.add(customer)
+    session.flush()
     return customer
 
 
@@ -140,7 +147,7 @@ def _save(
     *,
     type_: MessageType = MessageType.text,
     payload: dict[str, Any] | None = None,
-    wa_message_id: str | None = None,
+    tg_message_id: str | None = None,
 ) -> Message:
     msg = Message(
         business_id=conversation.business_id,
@@ -150,7 +157,7 @@ def _save(
         type=type_,
         body=body,
         payload=payload,
-        wa_message_id=wa_message_id,
+        tg_message_id=tg_message_id,
     )
     session.add(msg)
     session.flush()
@@ -182,46 +189,120 @@ def _incoming_text(incoming: IncomingMessage) -> str | None:
     return None
 
 
-def is_excluded(session: Session, business_id: uuid.UUID, phone: str) -> bool:
-    return (
-        session.exec(
-            select(ContactExclusion.id).where(
-                ContactExclusion.business_id == business_id, ContactExclusion.wa_phone == phone
-            )
-        ).first()
-        is not None
-    )
-
-
-def handle_owner_echo(
+def _tool_context(
     session: Session,
-    business_id: uuid.UUID,
-    customer_phone: str,
-    text: str | None,
-    wa_message_id: str | None = None,
-) -> str:
-    """The owner wrote to a customer from the WhatsApp Business app (coexistence echo).
+    business: Business,
+    conversation: Conversation,
+    customer: Customer,
+    outbox: Outbox,
+) -> ToolContext:
+    """Tools send through the outbox and every message they send is stored."""
 
-    The owner is handling this chat now: store the message and pause the AI for 24h.
-    """
-    if is_excluded(session, business_id, customer_phone):
-        return "excluded"
-    customer = _get_customer(
-        session, IncomingMessage(business_id=business_id, customer_phone=customer_phone)
+    def send_text(body: str) -> None:
+        outbox.send_text(customer.tg_chat_id, body)
+        _save(session, conversation, Direction.out, Sender.system, body)
+
+    def send_image(url: str, caption: str | None) -> None:
+        outbox.send_image(customer.tg_chat_id, url, caption)
+        _save(
+            session,
+            conversation,
+            Direction.out,
+            Sender.system,
+            caption,
+            type_=MessageType.image,
+            payload={"url": url},
+        )
+
+    def ask_phone(text: str) -> None:
+        outbox.ask_phone(customer.tg_chat_id, text)
+        _save(session, conversation, Direction.out, Sender.system, text)
+
+    return ToolContext(
+        session,
+        business,
+        conversation,
+        send_text=send_text,
+        send_image=send_image,
+        ask_phone=ask_phone,
     )
+
+
+def _can_start_over(session: Session, conversation: Conversation) -> bool:
+    """Not while the owner has the chat, or while a payment is pending or being checked."""
+    if conversation.needs_owner or (
+        conversation.ai_paused_until and conversation.ai_paused_until > utcnow()
+    ):
+        return False
+    order = orders.get_active_order(session, conversation.id)
+    return order is None or order.status == OrderStatus.chatting
+
+
+def send_welcome(
+    session: Session,
+    business: Business,
+    incoming: IncomingMessage,
+    first_name: str | None,
+    outbox: Outbox,
+) -> str:
+    """The customer opened the shop with /start: greet them before they write anything."""
+    customer = _get_customer(session, incoming)
+    conversation, is_new = _get_conversation(session, customer)
+    if conversation.ai_paused_until and not conversation.needs_owner:
+        # the customer pressed Start: they want the bot again, even if the owner replied earlier
+        handoff.resume_ai(conversation)
+        session.add(conversation)
+    if not is_new and _can_start_over(session, conversation):
+        # a fresh chat for the AI: small models copy their old replies from the history
+        conversation = Conversation(business_id=business.id, customer_id=customer.id)
+        session.add(conversation)
+        session.flush()
+    text = templates.welcome(business, first_name, available_items(session, business.id))
+    outbox.send_text(customer.tg_chat_id, text)
+    _save(session, conversation, Direction.out, Sender.system, text)
+    session.commit()
+    return "welcome"
+
+
+def handle_contact(
+    session: Session, incoming: IncomingMessage, phone: str, outbox: Outbox
+) -> PipelineResult:
+    """The customer tapped "Share phone number": save it and finish the checkout by code."""
+    business = session.get(Business, incoming.business_id)
+    incoming.phone = "".join(ch for ch in phone if ch.isdigit())
+    customer = _get_customer(session, incoming)
     conversation, _ = _get_conversation(session, customer)
-    handoff.owner_took_over(conversation)
-    session.add(conversation)
     _save(
         session,
         conversation,
-        Direction.out,
-        Sender.owner,
-        text,
-        wa_message_id=wa_message_id,
+        Direction.in_,
+        Sender.customer,
+        "[customer shared their phone number]",
+        tg_message_id=incoming.message_id,
     )
+    before = orders.get_active_order(session, conversation.id)
+    before_state = (before.id, before.updated_at, before.status) if before else None
+    outbox.send_text(customer.tg_chat_id, templates.PHONE_THANKS, remove_keyboard=True)
+    _save(session, conversation, Direction.out, Sender.system, templates.PHONE_THANKS)
+
+    outcome = "phone_saved"
+    ctx = _tool_context(session, business, conversation, customer, outbox)
+    order = ctx.order
+    owner_has_chat = conversation.needs_owner or (
+        conversation.ai_paused_until and conversation.ai_paused_until > utcnow()
+    )
+    if (
+        not owner_has_chat
+        and order is not None
+        and order.status == OrderStatus.chatting
+        and not orders.missing_fields(session, order)
+    ):
+        result = execute_tool(ctx, "request_payment", {})
+        outcome = "payment_sent" if result.get("payment_sent") else outcome
     session.commit()
-    return "ai_paused"
+    order = orders.get_active_order(session, conversation.id)
+    published = _publish(business.id, conversation.id, before_state, order, ctx.flags)
+    return PipelineResult(conversation.id, order, None, outcome, published)
 
 
 def handle_incoming(session: Session, incoming: IncomingMessage, outbox: Outbox) -> PipelineResult:
@@ -229,11 +310,6 @@ def handle_incoming(session: Session, incoming: IncomingMessage, outbox: Outbox)
     if business is None:
         log.info("message for unknown business ignored")
         return PipelineResult(None, None, None, "unknown_business")
-
-    # friends, family, suppliers: nothing is stored and the AI never sees it
-    if is_excluded(session, business.id, incoming.customer_phone):
-        log.info("message from excluded contact %s ignored", mask_phone(incoming.customer_phone))
-        return PipelineResult(None, None, None, "excluded")
 
     customer = _get_customer(session, incoming)
     conversation, is_new = _get_conversation(session, customer)
@@ -257,7 +333,7 @@ def handle_incoming(session: Session, incoming: IncomingMessage, outbox: Outbox)
         text,
         type_=incoming.type,
         payload=payload,
-        wa_message_id=incoming.wa_message_id,
+        tg_message_id=incoming.message_id,
     )
 
     before = orders.get_active_order(session, conversation.id)
@@ -297,31 +373,15 @@ def handle_incoming(session: Session, incoming: IncomingMessage, outbox: Outbox)
             order.payment_proof_media_url = proof  # hint only, never proof
             session.add(order)
     elif text is None:
-        outbox.send_text(customer.wa_phone, templates.TEXT_ONLY)
+        outbox.send_text(customer.tg_chat_id, templates.TEXT_ONLY)
         _save(session, conversation, Direction.out, Sender.system, templates.TEXT_ONLY)
         return finish(templates.TEXT_ONLY, "unsupported_type", [])
 
-    def send_text(body: str) -> None:
-        outbox.send_text(customer.wa_phone, body)
-        _save(session, conversation, Direction.out, Sender.system, body)
-
-    def send_image(url: str, caption: str | None) -> None:
-        outbox.send_image(customer.wa_phone, url, caption)
-        _save(
-            session,
-            conversation,
-            Direction.out,
-            Sender.system,
-            caption,
-            type_=MessageType.image,
-            payload={"url": url},
-        )
-
-    ctx = ToolContext(session, business, conversation, send_text=send_text, send_image=send_image)
+    ctx = _tool_context(session, business, conversation, customer, outbox)
     result = run_agent(ctx, _history(session, conversation), first_message=is_new)
 
     if result.reply:
-        outbox.send_text(customer.wa_phone, result.reply)
+        outbox.send_text(customer.tg_chat_id, result.reply)
     sender = Sender.ai if result.outcome == Outcome.reply else Sender.system
     # every agent turn is logged for debugging (tool calls + results)
     _save(
@@ -332,5 +392,5 @@ def handle_incoming(session: Session, incoming: IncomingMessage, outbox: Outbox)
         result.reply,
         payload={"outcome": result.outcome.value, "trace": result.trace},
     )
-    log.info("agent %s for %s", result.outcome.value, mask_phone(customer.wa_phone))
+    log.info("agent %s for %s", result.outcome.value, mask_id(customer.tg_chat_id))
     return finish(result.reply, result.outcome.value, ctx.flags)

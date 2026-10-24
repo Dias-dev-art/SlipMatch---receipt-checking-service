@@ -1,4 +1,4 @@
-# Replit: one process serves the API, the WhatsApp webhook, /media and the dashboard.
+# Replit: one process serves the API, the Telegram webhook, /media and the dashboard.
 # The dashboard is a static Next.js export (src/frontend/out) mounted by FastAPI at /.
 # Top-level keys must stay above the first [table] header, or TOML puts them inside it.
 modules = ["python-3.12", "nodejs-20", "web"]

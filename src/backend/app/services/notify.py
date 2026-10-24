@@ -27,4 +27,4 @@ def notify_customer(
             payload=payload,
         )
     )
-    (outbox or get_outbox(session, order.business_id)).send_text(customer.wa_phone, text)
+    (outbox or get_outbox(session, order.business_id)).send_text(customer.tg_chat_id, text)

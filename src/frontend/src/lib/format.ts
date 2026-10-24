@@ -37,14 +37,28 @@ export function formatRelative(iso: string, now: number = Date.now()): string {
 }
 
 /** "60123456789" → "+60 12-345 6789" */
-export function formatPhone(waPhone: string): string {
-  const m = waPhone.match(/^60(1\d)(\d{3,4})(\d{4})$/);
-  if (!m) return `+${waPhone}`;
+export function formatPhone(phone: string): string {
+  const m = phone.match(/^60(1\d)(\d{3,4})(\d{4})$/);
+  if (!m) return `+${phone}`;
   return `+60 ${m[1]}-${m[2]} ${m[3]}`;
 }
 
-export function customerName(customer: { display_name: string | null; wa_phone: string }): string {
-  return customer.display_name ?? formatPhone(customer.wa_phone);
+type CustomerLike = { display_name: string | null; username: string | null; phone: string | null };
+
+/** Telegram name, else @username, else phone. */
+export function customerName(customer: CustomerLike): string {
+  if (customer.display_name) return customer.display_name;
+  if (customer.username) return `@${customer.username}`;
+  return customer.phone ? formatPhone(customer.phone) : "Customer";
+}
+
+/** "@username" when the customer has one, for a second line under the name. */
+export function customerHandle(customer: CustomerLike): string | null {
+  return customer.display_name && customer.username ? `@${customer.username}` : null;
+}
+
+export function telegramProfileUrl(username: string): string {
+  return `https://t.me/${username}`;
 }
 
 export function initials(name: string): string {

@@ -27,7 +27,7 @@ UI/UX: use shadcn/ui components as they come; no custom design system for now. K
 | `/login`, `/register` | Auth (register also creates the business) |
 | `/orders` (home) | **Phone:** status switcher (Check · Awaiting · Approved · Cancelled) + one card per order. **Desktop (≥1024px):** Shopify-style table with status tabs + counts (All, Check payment, Awaiting payment, Approved, Cancelled), Sort menu (Status / Newest / Oldest), one row per order (code, date, customer, type, items, total, status, timer), Approve / Not received / Restore in the row, click a row to expand items, totals, address and payment screenshot. Countdown + sound on Check payment |
 | `/menu` | Table of items (cards on phone), add/edit dialog (name, price, description, tags, category), sold-out switch inline |
-| `/settings` | Business info, delivery fee, pickup/delivery toggles, payment QR upload, payment instructions, timeout, exclusion list, WhatsApp number connection |
+| `/settings` | Business info, delivery fee, pickup/delivery toggles, **Telegram ordering link** (link, copy, open, QR code with PNG download via `qrcode.react`, editable shop code), payment QR upload, payment instructions, timeout |
 
 ## Structure
 
@@ -42,26 +42,29 @@ src/
 │   ├── api-types.ts   # (todo) generated
 │   ├── mock-api.ts    # in-memory backend stand-in, same exports as api.ts (see "Mock data")
 │   ├── strings.ts     # all UI text
-│   ├── format.ts      # formatMYR, times, phones
+│   ├── format.ts      # formatMYR, times, phones, customerName / customerHandle (@username)
 │   └── auth.ts        # token in memory + localStorage, useToken()
-└── hooks/             # use-orders, use-menu, use-business, use-auth, use-server-events, use-media-query…
+└── hooks/             # use-orders, use-menu, use-business, use-conversations, use-auth, use-server-events…
 ```
 
-No Inbox or Test chat page: when the AI hands a chat off (`handoff_to_owner`), the owner replies from the WhatsApp Business app. Test the agent through the backend's `/dev/simulate` directly.
+Customers order through Telegram; the dashboard is for the owner only. When the AI hands a chat off (`handoff_to_owner`), the **chat panel** (`components/handoff/chat-panel.tsx`: a sheet opened from the toast or the "N chats need you" button in the sidebar/header) shows the history, sends the owner's reply through the bot (`POST /conversations/{id}/reply`, signed with the shop name; the AI then pauses while the owner talks: 15 minutes after the last reply, and closing the panel hands the chat back to the AI at once) and has **Resume AI**. There is no general inbox or test chat page: test the agent through the backend's `/dev/simulate`.
+
+Customers are `{id, display_name, username, phone}`: name first, `@username` under it, phone (`tel:` link) and Telegram profile link in the expanded order (`CustomerContact` in `orders/order-parts.tsx`).
 
 ## Theme
 
 - Palette: `#0d1321` ink · `#1d2d44` navy · `#3e5c76` slate · `#748cab` steel · `#f0ebd8` cream. Defined once in `src/app/globals.css` (`:root` = light, `.dark` = dark) and mapped to the shadcn tokens. Light: cream page, navy sidebar and primary. Dark: ink page, navy cards, steel primary.
+- Logo: `public/Waitly_Logo.png` (navy cloche + gold dot on white). `components/brand.tsx` shows it on a small white tile so it works on the navy sidebar and in dark mode; `src/app/icon.png` / `apple-icon.png` are copies used as the browser tab and home-screen icon.
 - Light / Dark / System via `next-themes` (`components/providers.tsx`); the picker is in the user menu.
 - Signal colors are tokens too: `status-check` (amber), `status-awaiting`, `status-approved` (green), `status-cancelled`, `danger` (red), each with a `-soft` background. Status → classes map lives in `components/orders/status.ts`.
-- Use tokens (`bg-primary`, `text-muted-foreground`, `bg-status-check-soft`…), never raw Tailwind colors like `bg-amber-500`. The only exception is the white behind the payment QR (QR codes need it to scan).
+- Use tokens (`bg-primary`, `text-muted-foreground`, `bg-status-check-soft`…), never raw Tailwind colors like `bg-amber-500`. The only exception is the white behind QR codes (payment QR, Telegram link QR): they need it to scan.
 
 ## Backend connection
 
 - Hooks in `src/hooks/use-*.ts` (TanStack Query) import `* as api from "@/lib/api"`, which calls the FastAPI backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`; set it in `src/frontend/.env.local` if different). The backend must allow this origin: `FRONTEND_URL` in the repo `.env`.
-- `subscribeEvents` in `lib/api.ts` is an `EventSource` on `/api/v1/events?token=…` (reconnects when the stream closes). `use-server-events.ts` handles `order.*`, `payment.check_requested` (sound + toast) and `conversation.needs_owner` (toast with **Resume AI** → `POST /api/v1/conversations/{id}/resume-ai`).
+- `subscribeEvents` in `lib/api.ts` is an `EventSource` on `/api/v1/events?token=…` (reconnects when the stream closes). `use-server-events.ts` handles `order.*`, `payment.check_requested` (sound + toast) and `conversation.needs_owner` (toast with **Open chat** → the chat panel).
 - `src/lib/types.ts` hand-writes the API shapes; replace with the generated `api-types.ts`. Money and coordinates are decimal strings from the API. Order items: `{id, menu_item_id, slug, name, unit_price, qty, note}` (name/price are snapshots).
-- Test orders without WhatsApp: `POST /dev/simulate` on the backend (`/docs`), the board updates live.
+- Test orders without Telegram: `POST /dev/simulate` on the backend (`/docs`), the board updates live.
 - Production is a static export (`output: "export"` in `next.config.ts`, so no server features: no server actions, route handlers, rewrites or `cacheComponents`). `NEXT_PUBLIC_API_URL= npm run build` writes `out/`, which the FastAPI backend serves at `/`; the empty API URL makes every call same-origin.
 
 ## Mock data (offline design)

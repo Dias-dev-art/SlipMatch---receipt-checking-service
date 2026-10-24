@@ -19,10 +19,13 @@ export type CancelReason =
   | "owner_rejected"
   | "customer";
 
+/** A Telegram customer. `phone` is shared with Telegram's button at checkout (digits, 60…). */
 export interface Customer {
   id: string;
-  wa_phone: string;
   display_name: string | null;
+  /** Telegram @username without the @; not every Telegram user has one. */
+  username: string | null;
+  phone: string | null;
 }
 
 /** Name and price are the snapshot taken when the item was ordered. */
@@ -80,12 +83,6 @@ export interface MenuItemInput {
   is_available: boolean;
 }
 
-export interface WhatsAppAccount {
-  phone_number_id: string;
-  display_phone: string;
-  coexistence: boolean;
-}
-
 export interface Business {
   id: string;
   name: string;
@@ -97,13 +94,17 @@ export interface Business {
   unique_amount_cents: boolean;
   payment_timeout_minutes: number;
   greeting: string | null;
-  whatsapp: WhatsAppAccount | null;
+  /** End of the Telegram link: t.me/<bot>?start=<shop_code>. */
+  shop_code: string;
+  /** The link customers open to order; null until the server knows the bot's username. */
+  telegram_link: string | null;
 }
 
 export type BusinessPatch = Partial<
   Pick<
     Business,
     | "name"
+    | "shop_code"
     | "delivery_enabled"
     | "delivery_fee"
     | "pickup_enabled"
@@ -114,16 +115,28 @@ export type BusinessPatch = Partial<
   >
 >;
 
-export interface WhatsAppInput {
-  phone_number_id: string;
-  display_phone: string;
-  access_token: string;
+export type MessageSender = "customer" | "ai" | "owner" | "system";
+
+export interface ConversationMessage {
+  id: string;
+  direction: "in" | "out";
+  sender: MessageSender;
+  type: "text" | "image" | "location" | "audio" | "other";
+  body: string | null;
+  created_at: string;
 }
 
-export interface Exclusion {
+/** A customer chat; `needs_owner` = the AI handed it to the owner. */
+export interface Conversation {
   id: string;
-  wa_phone: string;
-  label: string;
+  customer: Customer;
+  needs_owner: boolean;
+  handoff_reason: string | null;
+  handoff_at: string | null;
+  ai_paused_until: string | null;
+  last_customer_message_at: string;
+  last_message: string | null;
+  created_at: string;
 }
 
 export interface Owner {

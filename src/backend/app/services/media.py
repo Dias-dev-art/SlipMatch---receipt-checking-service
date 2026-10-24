@@ -2,7 +2,7 @@
 
 Stored in Postgres (`media_files`): hosting disks are wiped on every deploy. The DB stores the
 path (`/media/<business>/<file>`), not the full URL, so a new ngrok or hosting URL
-(PUBLIC_BASE_URL) does not break old links.
+(PUBLIC_BASE_URL) does not break old links. Telegram gets the bytes uploaded, never the link.
 """
 
 import uuid
@@ -31,9 +31,15 @@ def load(session: Session, path: str) -> MediaFile | None:
 
 
 def absolute_url(path: str | None) -> str | None:
-    """Full link for WhatsApp and the dashboard; other values (media ids, URLs) pass through."""
+    """Full link for the dashboard; other values (file ids, URLs) pass through."""
     if not path:
         return None
     if path.startswith("/media/"):
         return settings.PUBLIC_BASE_URL.rstrip("/") + path
     return path
+
+
+def path_of(url: str) -> str | None:
+    """Back from `absolute_url()`: the /media/... path, or None for any other link."""
+    path = url.removeprefix(settings.PUBLIC_BASE_URL.rstrip("/"))
+    return path if path.startswith("/media/") else None

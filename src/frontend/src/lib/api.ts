@@ -4,13 +4,13 @@ import { getToken, setToken } from "@/lib/auth";
 import type {
   Business,
   BusinessPatch,
-  Exclusion,
+  Conversation,
+  ConversationMessage,
   Me,
   MenuItem,
   MenuItemInput,
   Order,
   ServerEvent,
-  WhatsAppInput,
 } from "@/lib/types";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
@@ -152,7 +152,21 @@ export async function restoreOrder(id: string): Promise<Order> {
 }
 
 // ---------------------------------------------------------------------------
-// Handoff: give a chat back to the AI
+// Handoff: chats the AI passed to the owner. The owner answers here (sent through the bot)
+// or gives the chat back to the AI.
+
+export async function getConversations(needsOwner?: boolean): Promise<Conversation[]> {
+  const query = needsOwner === undefined ? "" : `?needs_owner=${needsOwner}`;
+  return request("GET", `/api/v1/conversations${query}`);
+}
+
+export async function getConversationMessages(id: string): Promise<ConversationMessage[]> {
+  return request("GET", `/api/v1/conversations/${id}/messages`);
+}
+
+export async function replyToConversation(id: string, text: string): Promise<Conversation> {
+  return request("POST", `/api/v1/conversations/${id}/reply`, { json: { text } });
+}
 
 export async function resumeAi(conversationId: string): Promise<void> {
   await request("POST", `/api/v1/conversations/${conversationId}/resume-ai`);
@@ -196,20 +210,4 @@ export async function uploadPaymentQr(file: File): Promise<Business> {
   const form = new FormData();
   form.append("file", file);
   return request("POST", "/api/v1/business/payment-qr", { form });
-}
-
-export async function putWhatsApp(input: WhatsAppInput): Promise<Business> {
-  return request("PUT", "/api/v1/business/whatsapp", { json: input });
-}
-
-export async function getExclusions(): Promise<Exclusion[]> {
-  return request("GET", "/api/v1/business/exclusions");
-}
-
-export async function addExclusion(input: Omit<Exclusion, "id">): Promise<Exclusion> {
-  return request("POST", "/api/v1/business/exclusions", { json: input });
-}
-
-export async function removeExclusion(id: string): Promise<void> {
-  return request("DELETE", `/api/v1/business/exclusions/${id}`);
 }

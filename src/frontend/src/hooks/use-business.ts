@@ -10,7 +10,6 @@ import type { Business } from "@/lib/types";
 
 export const businessKeys = {
   all: ["business"] as const,
-  exclusions: ["business", "exclusions"] as const,
 };
 
 export function useBusiness() {
@@ -34,29 +33,3 @@ function useBusinessMutation<TInput>(fn: (input: TInput) => Promise<Business>, d
 export const usePatchBusiness = () => useBusinessMutation(api.patchBusiness, t.common.saved);
 export const useUploadPaymentQr = () =>
   useBusinessMutation(api.uploadPaymentQr, t.settings.payment.qrUploaded);
-export const usePutWhatsApp = () =>
-  useBusinessMutation(api.putWhatsApp, t.settings.whatsapp.connectedToast);
-
-export function useExclusions() {
-  return useQuery({ queryKey: businessKeys.exclusions, queryFn: api.getExclusions });
-}
-
-export function useAddExclusion() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: api.addExclusion,
-    onSuccess: () => toast.success(t.settings.exclusions.added),
-    onError: (error) => toastError(error),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: businessKeys.exclusions }),
-  });
-}
-
-export function useRemoveExclusion() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: api.removeExclusion,
-    onSuccess: () => toast.success(t.settings.exclusions.removed),
-    onError: (error) => toastError(error),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: businessKeys.exclusions }),
-  });
-}

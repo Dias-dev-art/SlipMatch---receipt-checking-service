@@ -2,7 +2,7 @@
 
 export const t = {
   appName: "Waitly",
-  tagline: "WhatsApp orders on autopilot. You just check the payment.",
+  tagline: "Telegram orders on autopilot. You just check the payment.",
 
   common: {
     save: "Save",
@@ -141,9 +141,32 @@ export const t = {
 
   handoff: {
     title: "A chat needs you",
-    body: "The AI stopped replying to a customer. Answer them in the WhatsApp Business app, or let the AI continue.",
+    body: "The AI passed a customer to you. Open the chat to reply, or let the AI continue.",
+    open: "Open chat",
     resume: "Resume AI",
     resumed: "The AI will answer this customer again.",
+    button: (n: number) => (n === 1 ? "1 chat needs you" : `${n} chats need you`),
+  },
+
+  chat: {
+    title: "Chat",
+    reason: "Why the AI passed it to you",
+    empty: "No messages yet.",
+    loadError: "Couldn't load this chat.",
+    placeholder: "Write to the customer…",
+    hint: "Sent in Telegram as your shop. The AI stays quiet while you chat, and takes over again when you close this chat.",
+    send: "Send",
+    sending: "Sending…",
+    sent: "Sent to the customer in Telegram.",
+    tooLong: "Keep it under 1000 characters.",
+    paused: "You're handling this chat. Close it when you're done and the AI takes over again.",
+    senders: {
+      customer: "Customer",
+      ai: "AI",
+      owner: "You",
+      system: "Waitly",
+    },
+    noChats: "No chats need you right now.",
   },
 
   menu: {
@@ -191,11 +214,12 @@ export const t = {
     description: "What the AI tells customers, and how you get paid.",
     business: {
       title: "Business",
-      description: "Shown to customers in WhatsApp.",
+      description: "Shown to customers in Telegram.",
       name: "Business name",
       greeting: "Greeting",
-      greetingPlaceholder: "Hi! Welcome to Kak Ani Kitchen. What would you like today?",
-      greetingHint: "Optional first message. Leave empty to let the AI greet.",
+      greetingPlaceholder: "Selamat datang! Today's special is nasi lemak ayam.",
+      greetingHint:
+        "Optional. Ends the welcome message customers get when they open your link (after your menu).",
     },
     ordering: {
       title: "Pickup and delivery",
@@ -223,33 +247,21 @@ export const t = {
       timeoutHint: "Orders cancel if not paid or not checked in this time.",
       timeoutInvalid: "Between 1 and 60 minutes.",
     },
-    whatsapp: {
-      title: "WhatsApp number",
-      description: "Connect the WhatsApp Business number customers write to.",
-      connected: "Connected",
-      notConnected: "Not connected",
-      phoneNumberId: "Phone number ID",
-      phoneNumberIdHint: "From Meta WhatsApp Manager.",
-      displayPhone: "Display phone",
-      accessToken: "Access token",
-      accessTokenSaved: "A token is saved. Enter it again to update this connection.",
-      accessTokenHint: "Stored encrypted. Never shown again.",
-      connect: "Connect",
-      update: "Update",
-      connectedToast: "WhatsApp number saved.",
-    },
-    exclusions: {
-      title: "Never auto-reply",
-      description: "Friends, family and suppliers. The AI never replies to these numbers.",
-      label: "Name",
-      labelPlaceholder: "Mum",
-      phone: "Phone",
-      phonePlaceholder: "60123456789",
-      phoneInvalid: "Digits only, with country code (60…).",
-      add: "Add",
-      empty: "No numbers excluded.",
-      added: "Number added.",
-      removed: "Number removed.",
+    telegram: {
+      title: "Your Telegram ordering link",
+      description:
+        "Customers open this link (or scan the QR) and order from your shop in Telegram. Share it on Instagram, your WhatsApp status, or print the QR for your counter.",
+      notReady: "The link appears here once the server's TELEGRAM_BOT_USERNAME is set.",
+      copy: "Copy link",
+      copied: "Link copied.",
+      open: "Open in Telegram",
+      download: "Download QR",
+      qrAlt: "QR code of your Telegram ordering link",
+      shopCode: "Shop code",
+      shopCodeHint: "The end of your link. Changing it breaks links and QR codes you already shared.",
+      shopCodeInvalid: "3–32 characters: lowercase letters, numbers and dashes.",
+      shopCodeTaken: "This shop code is taken. Try another one.",
+      shopCodeSaved: "Shop code saved. Your link changed.",
     },
   },
 } as const;

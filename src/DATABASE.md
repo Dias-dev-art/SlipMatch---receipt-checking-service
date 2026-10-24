@@ -4,6 +4,9 @@ Managed with SQLModel models + Alembic migrations. All ids are UUID. All timesta
 
 Every tenant table has `business_id` and an index on it. Queries on tenant data always filter by it.
 
+Customers write through one shared Telegram bot (migration `0007` renamed the last WhatsApp-era
+columns and dropped the contact exclusion list).
+
 ## Tables
 
 ### owners
@@ -24,6 +27,7 @@ Every tenant table has `business_id` and an index on it. Queries on tenant data 
 | id                      | uuid PK          |                                         |
 | owner_id                | uuid FK → owners | one owner, one business for MVP         |
 | name                    | text             | "Kak Ani Kitchen"                       |
+| shop_code               | text unique      | `kak-ani-kitchen`; Telegram link `t.me/<bot>?start=<shop_code>` |
 | delivery_enabled        | bool             |                                         |
 | delivery_fee            | numeric(10,2)    |                                         |
 | pickup_enabled          | bool             |                                         |
@@ -34,17 +38,16 @@ Every tenant table has `business_id` and an index on it. Queries on tenant data 
 | greeting                | text nullable    | custom first message                    |
 | created_at              | timestamptz      |                                         |
 
-### whatsapp_accounts
+### telegram_chats
 
-| Column                 | Type        | Notes                                        |
-| ---------------------- | ----------- | -------------------------------------------- |
-| id                     | uuid PK     |                                              |
-| business_id            | uuid FK unique | one number per business for MVP           |
-| phone_number_id        | text unique | from Meta, used to resolve tenant on webhook |
-| display_phone          | text        |                                              |
-| access_token_encrypted | text        | Fernet (`TOKEN_ENCRYPTION_KEY`); never returned by API |
-| coexistence            | bool        | number also used in WhatsApp Business app    |
-| created_at             | timestamptz |                                              |
+Which shop a chat with the shared bot orders from. Set by `/start <shop_code>`; opening another
+shop's link switches it. A chat without a row uses `TELEGRAM_DEFAULT_SHOP`.
+
+| Column      | Type        | Notes                    |
+| ----------- | ----------- | ------------------------ |
+| chat_id     | text PK     | Telegram chat id         |
+| business_id | uuid FK     | indexed                  |
+| updated_at  | timestamptz | last `/start`            |
 
 ### menu_items
 
@@ -67,19 +70,12 @@ Every tenant table has `business_id` and an index on it. Queries on tenant data 
 | Column       | Type          | Notes                                           |
 | ------------ | ------------- | ----------------------------------------------- |
 | id           | uuid PK       |                                                 |
-| business_id  | uuid FK       | same phone can be a customer of many businesses |
-| wa_phone     | text          | E.164 without +; unique per business            |
-| display_name | text nullable | WhatsApp profile name                           |
+| business_id  | uuid FK       | same chat can be a customer of many businesses  |
+| tg_chat_id   | text          | Telegram chat id; unique per business           |
+| tg_username  | text nullable | Telegram @username without @                    |
+| phone        | text nullable | shared with the "Share phone number" button at checkout; digits with country code |
+| display_name | text nullable | Telegram first + last name                      |
 | created_at   | timestamptz   |                                                 |
-
-### contact_exclusions
-
-| Column      | Type    | Notes             |
-| ----------- | ------- | ----------------- |
-| id          | uuid PK |                   |
-| business_id | uuid FK |                   |
-| wa_phone    | text    | unique per business |
-| label       | text    | "Mum", "Supplier" |
 
 ### conversations
 
@@ -91,8 +87,8 @@ Every tenant table has `business_id` and an index on it. Queries on tenant data 
 | needs_owner              | bool                 | handoff flag; AI silent while true |
 | handoff_reason           | text nullable        |                                    |
 | handoff_at               | timestamptz nullable | when flagged; AI resumes 24h later |
-| ai_paused_until          | timestamptz nullable | owner takeover                     |
-| last_customer_message_at | timestamptz          | for the 24h window                 |
+| ai_paused_until          | timestamptz nullable | AI silent until then               |
+| last_customer_message_at | timestamptz          | sorts the handoff list             |
 | created_at               | timestamptz          |                                    |
 
 ### messages
@@ -104,7 +100,7 @@ Every tenant table has `business_id` and an index on it. Queries on tenant data 
 | conversation_id | uuid FK                                            |                                              |
 | direction       | enum `in`, `out`                                   |                                              |
 | sender          | enum `customer`, `ai`, `owner`, `system`           |                                              |
-| wa_message_id   | text nullable                                      |                                              |
+| tg_message_id   | text nullable                                      | Telegram `message_id` of incoming messages   |
 | type            | enum `text`, `image`, `location`, `audio`, `other` |                                              |
 | body            | text nullable                                      |                                              |
 | payload         | jsonb nullable                                     | location, media id, tool calls for debugging |
@@ -151,7 +147,7 @@ Index: `(status, expires_at)` for the timer job; `(business_id, status, created_
 
 | Column        | Type        | Notes                |
 | ------------- | ----------- | -------------------- |
-| wa_message_id | text PK     | dedupe Meta retries  |
+| update_key    | text PK     | `tg:<update_id>`, dedupes Telegram retries |
 | received_at   | timestamptz | cleanup after 7 days |
 
 ### media_files
@@ -170,11 +166,10 @@ Payment QRs and customer screenshots, kept in Postgres because hosting disks are
 ## Relations
 
 ```
-owners 1─1 businesses 1─* whatsapp_accounts
+owners 1─1 businesses 1─* telegram_chats
 businesses 1─* menu_items
 businesses 1─* customers 1─* conversations 1─* messages
 conversations 1─* orders 1─* order_items *─1 menu_items
-businesses 1─* contact_exclusions
 businesses 1─* media_files
 ```
 
@@ -182,4 +177,4 @@ A conversation has at most one order in `chatting`, `awaiting_payment` or `payme
 
 ## Seed data
 
-`backend/app/seed.py` creates a demo owner (`demo@demo.my` / `demo1234`), business "Kak Ani Kitchen", and menu: Nasi Lemak RM8, Mee Goreng RM7 (chicken, egg, vegetables, sweet-spicy sauce), Roti Canai RM2, Teh Tarik RM3. Delivery fee RM3.
+`backend/app/seed.py` creates a demo owner (`demo@demo.my` / `demo1234`), business "Kak Ani Kitchen" (shop code `kak-ani-kitchen`), and menu: Nasi Lemak RM8, Mee Goreng RM7 (chicken, egg, vegetables, sweet-spicy sauce), Roti Canai RM2, Teh Tarik RM3. Delivery fee RM3.

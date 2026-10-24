@@ -13,15 +13,21 @@ from app.api.v1 import api_router, dev
 from app.core.config import settings
 from app.services import timers
 from app.services.orders import OrderError
-from app.webhook import router as webhook
+from app.telegram import router as telegram
+from app.telegram import setup as telegram_setup
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+# httpx logs every request URL at INFO, and Telegram Bot API URLs contain the bot token
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # tests drive the timer directly; everywhere else the loop runs in the background
-    task = asyncio.create_task(timers.run_forever()) if settings.ENV != "test" else None
+    task = None
+    if settings.ENV != "test":
+        await asyncio.to_thread(telegram_setup.on_startup)
+        task = asyncio.create_task(timers.run_forever())
     yield
     if task:
         task.cancel()
@@ -30,7 +36,7 @@ async def lifespan(_: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="WhatsApp AI Order Agent", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Telegram AI Order Agent", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.FRONTEND_URL],
@@ -48,8 +54,8 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(api_router)
-    app.include_router(webhook.router)
-    # payment QRs and customer screenshots; public so WhatsApp can fetch the QR by link
+    app.include_router(telegram.router)
+    # payment QRs and customer screenshots, shown in the dashboard
     app.include_router(media.router)
     if settings.ENV in ("dev", "test"):
         app.include_router(dev.router)

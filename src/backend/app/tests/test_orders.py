@@ -35,7 +35,7 @@ def outbox():
 
 def chat(client, headers, llm, *steps, text="msg", phone=PHONE):
     llm.script(*steps)
-    r = client.post("/dev/simulate", headers=headers, json={"customer_phone": phone, "text": text})
+    r = client.post("/dev/simulate", headers=headers, json={"chat_id": phone, "text": text})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -51,14 +51,25 @@ def order_in(client, headers, llm, target: str, phone=PHONE) -> dict:
             call("set_order_type", type="pickup"),
         ),
         say("ok"),
+        text="2 nasi lemak tapau",
         phone=phone,
     )
     if target == "chatting":
         return body["order"]
-    body = chat(client, headers, llm, tools(call("request_payment")), say("ok"), phone=phone)
+    body = chat(
+        client, headers, llm, tools(call("request_payment")), say("ok"), text="itu je", phone=phone
+    )
     if target == "awaiting_payment":
         return body["order"]
-    body = chat(client, headers, llm, tools(call("mark_paid_by_customer")), say("ok"), phone=phone)
+    body = chat(
+        client,
+        headers,
+        llm,
+        tools(call("mark_paid_by_customer")),
+        say("ok"),
+        text="dah bayar",
+        phone=phone,
+    )
     assert body["order"]["status"] == "payment_check"
     return body["order"]
 
@@ -228,7 +239,7 @@ def test_list_and_filter(client, owner, llm):
     checks = client.get("/api/v1/orders?status=payment_check", headers=owner).json()
     assert [o["id"] for o in checks] == [a["id"]]
     assert checks[0]["items"][0]["slug"] == "nasi_lemak"
-    assert checks[0]["customer"]["wa_phone"] == "60111111111"
+    assert checks[0]["customer"]["phone"] == "60111111111"
     both = client.get("/api/v1/orders?status=payment_check&status=chatting", headers=owner).json()
     assert len(both) == 2
 

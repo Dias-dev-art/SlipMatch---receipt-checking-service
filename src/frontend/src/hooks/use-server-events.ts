@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
+import { useChatPanel } from "@/components/handoff/chat-panel";
+import { conversationKeys } from "@/hooks/use-conversations";
 import { orderKeys } from "@/hooks/use-orders";
 import * as api from "@/lib/api";
-import { toastError } from "@/lib/errors";
 import { playPaymentAlert } from "@/lib/sound";
 import { t } from "@/lib/strings";
 
@@ -15,6 +16,7 @@ import { t } from "@/lib/strings";
 export function useServerEvents() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { openChat } = useChatPanel();
 
   useEffect(
     () =>
@@ -33,23 +35,17 @@ export function useServerEvents() {
             });
             break;
           case "conversation.needs_owner":
-            // The AI stopped answering this chat. The owner replies from the WhatsApp Business
-            // app, or gives the chat back to the AI here (it also resumes by itself after 24h).
+            // The AI passed this chat to the owner: they answer it in the chat panel (sent
+            // through the bot) or give it back to the AI (it also resumes by itself after 24h).
+            queryClient.invalidateQueries({ queryKey: conversationKeys.all });
             toast.warning(t.handoff.title, {
               description: t.handoff.body,
               duration: 30_000,
-              action: {
-                label: t.handoff.resume,
-                onClick: () =>
-                  api
-                    .resumeAi(event.conversation_id)
-                    .then(() => toast.success(t.handoff.resumed))
-                    .catch((error) => toastError(error)),
-              },
+              action: { label: t.handoff.open, onClick: () => openChat(event.conversation_id) },
             });
             break;
         }
       }),
-    [queryClient, router],
+    [queryClient, router, openChat],
   );
 }

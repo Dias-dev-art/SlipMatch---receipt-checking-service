@@ -38,6 +38,21 @@ def next_sort_order(session: Session, business_id: uuid.UUID) -> int:
     return (current or 0) + 1
 
 
+def available_items(session: Session, business_id: uuid.UUID) -> list[MenuItem]:
+    """What customers can order now, in menu order (sold-out and deleted items left out)."""
+    return list(
+        session.exec(
+            select(MenuItem)
+            .where(
+                MenuItem.business_id == business_id,
+                col(MenuItem.is_available).is_(True),
+                col(MenuItem.deleted_at).is_(None),
+            )
+            .order_by(col(MenuItem.sort_order), col(MenuItem.name))
+        ).all()
+    )
+
+
 def get_item(session: Session, business_id: uuid.UUID, item_id: uuid.UUID) -> MenuItem | None:
     return session.exec(
         select(MenuItem).where(

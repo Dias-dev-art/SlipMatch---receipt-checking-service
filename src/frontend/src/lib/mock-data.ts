@@ -3,8 +3,9 @@
 
 import type {
   Business,
+  Conversation,
+  ConversationMessage,
   Customer,
-  Exclusion,
   MenuItem,
   Order,
   Owner,
@@ -29,11 +30,8 @@ export const seedBusiness: Business = {
   unique_amount_cents: false,
   payment_timeout_minutes: 10,
   greeting: null,
-  whatsapp: {
-    phone_number_id: "109876543210987",
-    display_phone: "+60 12-555 0199",
-    coexistence: true,
-  },
+  shop_code: "kak-ani-kitchen",
+  telegram_link: "https://t.me/WaitlyAppBot?start=kak-ani-kitchen",
 };
 
 export const seedMenu: MenuItem[] = [
@@ -84,12 +82,12 @@ export const seedMenu: MenuItem[] = [
 ];
 
 const customers: Customer[] = [
-  { id: "cus_1", wa_phone: "60123456789", display_name: "Aisyah" },
-  { id: "cus_2", wa_phone: "60174448821", display_name: "Jason Lim" },
-  { id: "cus_3", wa_phone: "60198765432", display_name: null },
-  { id: "cus_4", wa_phone: "60162223344", display_name: "Kumar" },
-  { id: "cus_5", wa_phone: "60135550101", display_name: "Mei Ling" },
-  { id: "cus_6", wa_phone: "60112349876", display_name: "Farid" },
+  { id: "cus_1", display_name: "Aisyah", username: "aisyah_r", phone: "60123456789" },
+  { id: "cus_2", display_name: "Jason Lim", username: "jasonlim", phone: "60174448821" },
+  { id: "cus_3", display_name: null, username: null, phone: "60198765432" },
+  { id: "cus_4", display_name: "Kumar", username: null, phone: "60162223344" },
+  { id: "cus_5", display_name: "Mei Ling", username: "meiling88", phone: null },
+  { id: "cus_6", display_name: "Farid", username: "farid_k", phone: "60112349876" },
 ];
 
 const item = (
@@ -265,7 +263,38 @@ export const seedOrders: Order[] = [
   },
 ];
 
-export const seedExclusions: Exclusion[] = [
-  { id: "exc_1", wa_phone: "60123330001", label: "Mak" },
-  { id: "exc_2", wa_phone: "60198882020", label: "Ayam supplier" },
+/** A chat the AI handed to the owner (complaint), for the chat panel. */
+export const seedConversations: Conversation[] = [
+  {
+    id: "conv_1",
+    customer: customers[1],
+    needs_owner: true,
+    handoff_reason: "complaint: food was cold",
+    handoff_at: minutes(-4),
+    ai_paused_until: null,
+    last_customer_message_at: minutes(-4),
+    last_message: "Thank you! I have passed your message to the owner. They will reply to you here soon.",
+    created_at: minutes(-30),
+  },
 ];
+
+export const seedMessages: Record<string, ConversationMessage[]> = {
+  conv_1: [
+    {
+      id: "msg_1",
+      direction: "in",
+      sender: "customer",
+      type: "text",
+      body: "Yesterday's mee goreng was cold when it arrived 😕 can I get a refund?",
+      created_at: minutes(-5),
+    },
+    {
+      id: "msg_2",
+      direction: "out",
+      sender: "system",
+      type: "text",
+      body: "Thank you! I have passed your message to the owner. They will reply to you here soon.",
+      created_at: minutes(-4),
+    },
+  ],
+};

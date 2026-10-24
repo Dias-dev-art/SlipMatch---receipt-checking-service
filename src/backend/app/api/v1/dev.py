@@ -1,4 +1,4 @@
-"""Dev only (ENV=dev): run the real pipeline without WhatsApp."""
+"""Dev only (ENV=dev): run the real pipeline without Telegram."""
 
 from typing import Any
 
@@ -16,14 +16,17 @@ router = APIRouter(prefix="/dev", tags=["dev"])
 
 
 class SimulateIn(BaseModel):
-    customer_phone: str = Field(pattern=r"^\d{8,15}$", examples=["60123456789"])
+    # any digits: stands in for a Telegram chat id
+    chat_id: str = Field(pattern=r"^\d{5,20}$", examples=["123456789"])
     text: str = Field(min_length=1, max_length=2000)
+    # Telegram shares it with a button at checkout; the simulator just says it (default: chat_id)
+    phone: str | None = Field(default=None, pattern=r"^\d{8,15}$", examples=["60123456789"])
 
 
 class SimulateOut(BaseModel):
     reply: str | None
     order: OrderOut | None
-    # what would have been sent to WhatsApp (payment QR + reference, reply...)
+    # what would have been sent to Telegram (payment QR + reference, reply...)
     sent: list[dict[str, Any]]
     outcome: str
 
@@ -34,7 +37,10 @@ def simulate(body: SimulateIn, session: SessionDep, business: CurrentBusiness) -
     result = handle_incoming(
         session,
         IncomingMessage(
-            business_id=business.id, customer_phone=body.customer_phone, text=body.text
+            business_id=business.id,
+            chat_id=body.chat_id,
+            text=body.text,
+            phone=body.phone or body.chat_id,
         ),
         outbox,
     )

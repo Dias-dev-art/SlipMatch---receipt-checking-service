@@ -1,6 +1,6 @@
 "use client";
 
-import { Bike, Check, ImageIcon, MapPin, RotateCcw, ShoppingBag, X } from "lucide-react";
+import { Bike, Check, ImageIcon, MapPin, Phone, RotateCcw, Send, ShoppingBag, X } from "lucide-react";
 
 import { statusStyle } from "@/components/orders/status";
 import {
@@ -25,9 +25,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useOrderAction } from "@/hooks/use-orders";
-import { formatMYR, formatTime } from "@/lib/format";
+import { formatMYR, formatPhone, formatTime, telegramProfileUrl } from "@/lib/format";
 import { t } from "@/lib/strings";
-import type { Order, OrderStatus } from "@/lib/types";
+import type { Customer, Order, OrderStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function StatusBadge({ status }: { status: OrderStatus }) {
@@ -107,6 +107,32 @@ export function OrderAddress({ order, className }: { order: Order; className?: s
           </a>
         )}
       </div>
+    </div>
+  );
+}
+
+/** How to reach the customer: phone (shared at checkout) and Telegram @username. */
+export function CustomerContact({ customer, className }: { customer: Customer; className?: string }) {
+  const { phone, username } = customer;
+  if (!phone && !username) return null;
+  return (
+    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-xs", className)}>
+      {phone && (
+        <a href={`tel:+${phone}`} className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline">
+          <Phone className="size-3.5 text-muted-foreground" />
+          {formatPhone(phone)}
+        </a>
+      )}
+      {username && (
+        <a
+          href={telegramProfileUrl(username)}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline"
+        >
+          <Send className="size-3.5 text-muted-foreground" />@{username}
+        </a>
+      )}
     </div>
   );
 }

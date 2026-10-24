@@ -7,9 +7,11 @@ from sqlmodel import Session, select
 from app.core.db import engine
 from app.core.security import hash_password
 from app.models import Business, MenuItem, Owner
+from app.services.shops import telegram_link
 
 DEMO_EMAIL = "demo@demo.my"
 DEMO_PASSWORD = "demo1234"
+DEMO_SHOP_CODE = "kak-ani-kitchen"
 
 MENU = [
     (
@@ -60,6 +62,7 @@ def seed(session: Session) -> Business:
         business = Business(
             owner_id=owner.id,
             name="Kak Ani Kitchen",
+            shop_code=DEMO_SHOP_CODE,
             delivery_enabled=True,
             delivery_fee=Decimal("3.00"),
             pickup_enabled=True,
@@ -91,3 +94,4 @@ if __name__ == "__main__":
     with Session(engine) as s:
         b = seed(s)
     print(f"Seeded '{b.name}'. Login: {DEMO_EMAIL} / {DEMO_PASSWORD}")
+    print(f"Telegram link: {telegram_link(b) or 'set TELEGRAM_BOT_USERNAME'}")

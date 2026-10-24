@@ -1,4 +1,4 @@
-"""Public /media links: payment QRs (WhatsApp fetches them by link) and payment screenshots."""
+"""Public /media links: payment QRs and customer payment screenshots, shown in the dashboard."""
 
 import uuid
 

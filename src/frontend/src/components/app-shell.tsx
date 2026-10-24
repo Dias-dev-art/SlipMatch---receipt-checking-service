@@ -16,6 +16,7 @@ import { useTheme } from "next-themes";
 import { useEffect } from "react";
 
 import { Brand } from "@/components/brand";
+import { ChatProvider, ChatsButton } from "@/components/handoff/chat-panel";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -54,7 +55,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // The server and first paint can't see the token (it lives in localStorage), so they render
   // the full shell with the page's loading state. Only a confirmed sign-out drops the page.
   if (signedOut) return <ShellSkeleton />;
-  return <Shell>{children}</Shell>;
+  return (
+    <ChatProvider>
+      <Shell>{children}</Shell>
+    </ChatProvider>
+  );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -98,6 +103,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
+        <ChatsButton className="mx-1 mt-4 justify-start" />
         <div className="mt-auto">
           <UserMenu name={me?.owner.full_name} email={me?.owner.email} />
         </div>
@@ -107,6 +113,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur md:hidden">
           <Brand />
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{me?.business.name}</span>
+          <ChatsButton className="h-8 px-2" />
           <UserMenu name={me?.owner.full_name} email={me?.owner.email} compact />
         </header>
         <main className="flex-1 px-4 pt-5 pb-28 md:px-8 md:py-8">{children}</main>

@@ -14,15 +14,14 @@ Base URL: `NEXT_PUBLIC_API_URL` (dev `http://localhost:8000`). All dashboard end
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/api/v1/business` | settings, incl. `whatsapp: {phone_number_id, display_phone, coexistence} \| null` (never the token) and `payment_qr_url` (full URL or `null`) |
-| PATCH | `/api/v1/business` | partial: `name`, `delivery_enabled`, `delivery_fee`, `pickup_enabled`, `payment_instructions`, `unique_amount_cents`, `payment_timeout_minutes` (1–120), `greeting` (`""`/`null` clears). 422 if both pickup and delivery end up off |
+| GET | `/api/v1/business` | settings, incl. `shop_code`, `telegram_link` (`https://t.me/<bot>?start=<shop_code>`, `null` without `TELEGRAM_BOT_USERNAME`; shown with a QR code in Settings) and `payment_qr_url` (full URL or `null`) |
+| PATCH | `/api/v1/business` | partial: `name`, `shop_code` (`^[a-z0-9][a-z0-9-]{2,31}$`, 409 if taken), `delivery_enabled`, `delivery_fee`, `pickup_enabled`, `payment_instructions`, `unique_amount_cents`, `payment_timeout_minutes` (1–120), `greeting` (`""`/`null` clears). 422 if both pickup and delivery end up off |
 | POST | `/api/v1/business/payment-qr` | multipart `file`: PNG/JPEG/WebP ≤ 2 MB (415/413 otherwise); served publicly at `/media/...` |
-| GET | `/api/v1/business/exclusions` | contact exclusion list `[{id, wa_phone, label}]` |
-| POST | `/api/v1/business/exclusions` | `{wa_phone, label?}`; phone normalised to digits; 409 if already excluded |
-| DELETE | `/api/v1/business/exclusions/{id}` | |
-| PUT | `/api/v1/business/whatsapp` | `{phone_number_id, display_phone, access_token, coexistence?}`; token stored encrypted (503 without `TOKEN_ENCRYPTION_KEY`); 409 if the number belongs to another business |
-
 `/api/v1/auth/me` returns the same business object.
+
+Orders and conversations include `customer: {id, display_name, username, phone}`: the Telegram
+name, the @username (without @, may be `null`) and the phone number the customer shared with
+the bot's "Share phone number" button at checkout (digits with country code, e.g. `60123456789`).
 
 ## Menu
 
@@ -49,13 +48,15 @@ Invalid transitions return `409 Conflict`. Repeated clicks are safe.
 
 ## Handoff
 
-There is no inbox page: the owner answers handed-off chats from the WhatsApp Business app (that
-echo pauses the AI for 24h). These endpoints list them and give a chat back to the AI.
+The AI hands off complaints, refunds and angry customers. The dashboard's chat panel (opened from
+the toast or the "chats need you" button) lists them, shows the history, sends the owner's reply
+through the bot and gives the chat back to the AI.
 
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/v1/conversations?needs_owner=true` | chats the AI handed off: `{id, customer, needs_owner, handoff_reason, handoff_at, ai_paused_until, last_customer_message_at, last_message, created_at}`; most recent first |
 | GET | `/api/v1/conversations/{id}/messages` | history, oldest first (`?limit=`, default 100) |
+| POST | `/api/v1/conversations/{id}/reply` | `{text}` (1–1000 chars): sent to the customer's Telegram as `👩‍🍳 <shop name>:\n<text>`, stored as `sender=owner`; clears `needs_owner` and pauses the AI in this chat for 15 minutes after the reply (`ai_paused_until`); the dashboard calls `resume-ai` when the owner closes the chat panel |
 | POST | `/api/v1/conversations/{id}/resume-ai` | clear `needs_owner`, `handoff_reason`, `handoff_at` and `ai_paused_until` |
 
 A handoff nobody acts on resumes by itself 24h after `handoff_at` (timer job).
@@ -67,23 +68,35 @@ A handoff nobody acts on resumes by itself 24h after `handoff_at` (timer job).
 ## Media (public)
 
 `GET /media/<business_id>/<file>` serves uploaded payment QRs and downloaded customer screenshots
-(bytes in the `media_files` table, 404 if unknown, cached as immutable). The DB stores the `/media/...` path; API responses and WhatsApp messages use
-`PUBLIC_BASE_URL + path`, so a new ngrok or hosting URL does not break old links.
+(bytes in the `media_files` table, 404 if unknown, cached as immutable). The DB stores the `/media/...` path; API responses use
+`PUBLIC_BASE_URL + path`, so a new ngrok or hosting URL does not break old links. Telegram gets QR photos uploaded as bytes, not by link.
 
-## WhatsApp webhook (public)
+## Telegram webhook (public)
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/webhook` | verification: if `hub.mode=subscribe` and `hub.verify_token` matches `WHATSAPP_VERIFY_TOKEN`, return `hub.challenge` as plain text; else 403 |
-| POST | `/webhook` | verify `X-Hub-Signature-256` with `WHATSAPP_APP_SECRET` (401 if wrong or missing), return 200 fast, process in background |
+| POST | `/telegram/webhook` | `X-Telegram-Bot-Api-Secret-Token` must equal `TELEGRAM_WEBHOOK_SECRET` (401 otherwise); return 200 fast, process in background |
 
-Handled change fields: `messages` (text, interactive/button replies as text, location, image, audio → "text only" reply) and `smb_message_echoes` (owner typed in the WhatsApp Business app → AI paused 24h for that chat). Delivery `statuses` are ignored. Each message id is processed once (`processed_webhooks`).
+Registered by the backend itself at startup (`setWebhook` with `PUBLIC_BASE_URL/telegram/webhook`,
+the secret and `allowed_updates=["message"]`); skipped without a token, a secret or an https URL.
+
+Handled: private-chat `message` updates. `/start <shop_code>` ties the chat to that shop and sends
+the welcome; text, photo (largest size) or image document, location go through the pipeline;
+voice/audio → "text only" reply. A `contact` (the "Share phone number" button) saves the phone,
+only when `contact.user_id` is the sender's own id, then finishes the checkout by code. The
+sender's `username` is stored. Edited messages, groups and bots are ignored. Each `update_id` is
+processed once (`processed_webhooks`, key `tg:<update_id>`).
+
+Bot API calls (`app/telegram/client.py`): `sendMessage` (with a `request_contact` reply keyboard
+when asking for the phone, `remove_keyboard` after it), `sendPhoto` (multipart upload of the QR
+bytes), `sendChatAction` ("typing"), `getFile` + file download, `setWebhook`. Failures (e.g. 403:
+the customer blocked the bot) are logged, never raised.
 
 ## Dev only
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| POST | `/dev/simulate` | `{customer_phone, text}` (auth required, uses owner's business); returns `{reply, order, sent, outcome}` — `sent` is everything that would go to WhatsApp, `outcome` is `reply`, `ignored`, `handoff`, `fallback`, `needs_owner`, `ai_paused`, `excluded` or `unsupported_type` |
+| POST | `/dev/simulate` | `{chat_id, text, phone?}` (`chat_id`: 5–20 digits, stands in for a Telegram chat; `phone` defaults to `chat_id`, so the simulator skips the "Share phone number" step; auth required, uses owner's business); returns `{reply, order, sent, outcome}` — `sent` is everything that would go to Telegram, `outcome` is `reply`, `ignored`, `handoff`, `fallback`, `needs_owner`, `ai_paused` or `unsupported_type` |
 | POST | `/dev/reset` | wipe conversations/orders for the business |
 
 Enabled when `ENV` is `dev` or `test`.
@@ -115,4 +128,12 @@ OpenAI tools format. The LLM never sees `business_id` or `order_id`: the backend
 {"ok": true, "status": "awaiting_payment", "code": "A123", "total": 10.00, "payment_sent": true}
 ```
 
-`request_payment` itself sends the QR image and reference message through WhatsApp. The LLM's final text should only add a short friendly line, not repeat the amount.
+Results written by code before a tool runs, or instead of it:
+
+```json
+{"error": "phone_needed", "note": "A button to share the phone number was sent. Ask the customer to tap it."}
+{"error": "customer_not_done", "note": "The customer has not said they are finished. Ask if they want anything else."}
+{"error": "customer_did_not_choose", "note": "The customer has not said pickup or delivery yet. Ask them."}
+```
+
+`request_payment` itself sends the QR image and reference message through Telegram. The LLM's final text should only add a short friendly line, not repeat the amount.

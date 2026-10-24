@@ -3,7 +3,7 @@
     uv run python -m app.evals.llm_scenarios          # all scenarios
     uv run python -m app.evals.llm_scenarios a c f    # some of them
 
-Runs the real pipeline in-process (same code as /dev/simulate and the webhook) on its own
+Runs the real pipeline in-process (same code as /dev/simulate and the Telegram webhook) on its own
 business "LLM Eval Kitchen" in the dev database, wiped at the start of every run. Use it to
 compare model versions: every scenario should PASS before a model is used for the demo.
 """
@@ -63,7 +63,15 @@ SCENARIOS = [
         status="chatting",
         total="11.00",
     ),
-    Scenario("f", "Friend chat", ["bro jom lepak mamak malam ni"], outcome="ignored"),
+    # a waiter answers small talk warmly and steers back to the menu; nothing goes in the cart
+    Scenario(
+        "f",
+        "Small talk",
+        ["bro jom lepak mamak malam ni"],
+        status=None,
+        outcome="reply",
+        no_items=True,
+    ),
     Scenario("g", "Complaint", ["makanan semalam basi, nak refund"], outcome="handoff"),
     # payment was never requested, so "paid" must not reach the owner's Check payment column
     Scenario(
@@ -72,6 +80,20 @@ SCENARIOS = [
         ["2 roti canai tapau", "dah bayar"],
         not_status="payment_check",
     ),
+    Scenario(
+        "i", "Asks for a recommendation", ["hi, what's good here?"], outcome="reply", no_items=True
+    ),
+    # seen live 2026-10-25: the second request got no add_item call at all
+    Scenario(
+        "j",
+        "Adds more items later",
+        ["one nasi lemak", "can I also add one mee goreng and 2 teh tarik"],
+        status="chatting",
+        total="21.00",
+    ),
+    # seen live 2026-10-26: invented menu items, and "pass me to the owner" was not handed off
+    Scenario("k", "Asks for the menu", ["whats the menu?"], outcome="reply", no_items=True),
+    Scenario("l", "Asks for the owner", ["can you pass me to the owner"], outcome="handoff"),
 ]
 
 
@@ -148,7 +170,7 @@ def _print_trace(trace: list[dict]) -> None:
             print(f"      FALLBACK: {step['fallback']}")
 
 
-def run(scenario: Scenario, session: Session, business: Business, phone: str) -> Result:
+def run(scenario: Scenario, session: Session, business: Business, chat_id: str) -> Result:
     result = Result(scenario)
     print(f"\n=== {scenario.key}. {scenario.title} ===")
     outcome, order = None, None
@@ -157,7 +179,7 @@ def run(scenario: Scenario, session: Session, business: Business, phone: str) ->
         started = time.perf_counter()
         res = handle_incoming(
             session,
-            IncomingMessage(business_id=business.id, customer_phone=phone, text=text),
+            IncomingMessage(business_id=business.id, chat_id=chat_id, text=text, phone=chat_id),
             outbox,
         )
         result.seconds.append(time.perf_counter() - started)
@@ -198,7 +220,7 @@ def main(keys: set[str]) -> int:
         for n, scenario in enumerate(SCENARIOS):
             if keys and scenario.key not in keys:
                 continue
-            results.append(run(scenario, session, business, f"6019000000{n:02d}"))
+            results.append(run(scenario, session, business, f"90000000{n:02d}"))
 
     print("\n=== summary ===")
     for r in results:

@@ -12,12 +12,11 @@ from app.models.customer import (
 from app.models.media import MediaFile
 from app.models.menu import MenuItem
 from app.models.order import ACTIVE_STATUSES, Order, OrderItem, OrderStatus, OrderType
-from app.models.whatsapp import ContactExclusion, ProcessedWebhook, WhatsAppAccount
+from app.models.telegram import ProcessedWebhook, TelegramChat
 
 __all__ = [
     "ACTIVE_STATUSES",
     "Business",
-    "ContactExclusion",
     "Conversation",
     "Customer",
     "Direction",
@@ -32,5 +31,5 @@ __all__ = [
     "Owner",
     "ProcessedWebhook",
     "Sender",
-    "WhatsAppAccount",
+    "TelegramChat",
 ]

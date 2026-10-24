@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from app.models.base import id_field, money_field, ts_field
@@ -20,11 +21,14 @@ class Owner(SQLModel, table=True):
 
 class Business(SQLModel, table=True):
     __tablename__ = "businesses"
+    __table_args__ = (UniqueConstraint("shop_code", name="uq_businesses_shop_code"),)
 
     id: uuid.UUID = id_field()
     # one owner, one business for MVP
     owner_id: uuid.UUID = Field(foreign_key="owners.id", unique=True)
     name: str
+    # in the Telegram link t.me/<bot>?start=<shop_code>; registration makes it from the name
+    shop_code: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     delivery_enabled: bool = False
     delivery_fee: Decimal = money_field(Decimal("0.00"))
     pickup_enabled: bool = True

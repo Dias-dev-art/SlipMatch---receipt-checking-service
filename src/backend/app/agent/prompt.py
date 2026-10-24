@@ -11,6 +11,10 @@ def _money(value: Decimal) -> float:
     return float(value)
 
 
+# only used when nothing is available; the normal prompt is unchanged (tool calling is fragile)
+EMPTY_MENU = "[] (nothing is available today: say so politely and never name or suggest any food)"
+
+
 def menu_json(items: list[MenuItem]) -> str:
     return json.dumps(
         [
@@ -79,7 +83,7 @@ def build_system_prompt(
 You only help customers order from this menu.
 
 MENU (the only items you may offer; use these ids in tools):
-{menu_json(menu)}
+{menu_json(menu) if menu else EMPTY_MENU}
 
 ORDER TYPES: {", ".join(options) or "none"}
 
@@ -96,13 +100,13 @@ RULES:
 - Ask for what is still missing (missing_fields). For delivery you need the address.
 - When the customer has finished choosing, call request_payment. It sends the amount and reference itself; then add only a short friendly line, do not repeat the amount.
 - When the customer says they paid ("dah bayar", "sudah transfer", "paid", "done"), call mark_paid_by_customer. Never say the payment is received or confirmed; the owner checks the bank.
-- Complaints, refunds, angry customers, or questions the menu cannot answer: call handoff_to_owner.
-- Messages not about ordering (friends, spam, personal chat): call ignore_or_flag.
+- Complaints, refunds or angry customers: call handoff_to_owner.
+- Spam or abuse: call ignore_or_flag. Greetings and small talk: reply briefly, then ask what they would like to order.
 - Reply in the customer's language. Short, friendly, plain text, no markdown.{greeting}"""
 
 
 def _preamble(business: Business) -> str:
-    return f'You are the WhatsApp ordering assistant of "{business.name}", a food business in Malaysia.'
+    return f'You are the Telegram ordering assistant of "{business.name}", a food business in Malaysia.'
 
 
 def next_step(order: Order | None, missing: list[str]) -> str:

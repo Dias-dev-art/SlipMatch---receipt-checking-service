@@ -6,6 +6,7 @@ import { Fragment, useState } from "react";
 import { Countdown } from "@/components/orders/countdown";
 import {
   OrderActions,
+  CustomerContact,
   OrderAddress,
   OrderItems,
   OrderOutcome,
@@ -26,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { customerName, formatDateTime, formatMYR, formatPhone, formatRelative } from "@/lib/format";
+import { customerHandle, customerName, formatDateTime, formatMYR, formatRelative } from "@/lib/format";
 import { t } from "@/lib/strings";
 import type { Order } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -177,8 +178,11 @@ function OrderRow({ order, open, onToggle }: { order: Order; open: boolean; onTo
         </TableCell>
         <TableCell className="font-mono font-semibold text-foreground">{order.code}</TableCell>
         <TableCell title={formatDateTime(order.created_at)}>{formatRelative(order.created_at)}</TableCell>
-        <TableCell title={formatPhone(order.customer.wa_phone)} className="max-w-40 truncate">
-          {customerName(order.customer)}
+        <TableCell className="max-w-44">
+          <div className="truncate">{customerName(order.customer)}</div>
+          {customerHandle(order.customer) && (
+            <div className="truncate text-xs text-muted-foreground">{customerHandle(order.customer)}</div>
+          )}
         </TableCell>
         <TableCell>
           <OrderTypeBadge type={order.order_type} />
@@ -208,6 +212,7 @@ function OrderRow({ order, open, onToggle }: { order: Order; open: boolean; onTo
               <OrderTotals order={order} showTotal />
               <div className="flex flex-col gap-3">
                 <OrderAddress order={order} />
+                <CustomerContact customer={order.customer} />
                 <ProofThumbnail order={order} className="w-fit" />
                 <OrderOutcome order={order} />
               </div>

@@ -1,22 +1,10 @@
 """Business settings. Always the owner's own business, taken from the token."""
 
-import uuid
-
 from fastapi import APIRouter, HTTPException, UploadFile, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import col, select
 
 from app.core.deps import CurrentBusiness, SessionDep
-from app.core.security import TokenEncryptionError, encrypt_token
-from app.models import ContactExclusion, WhatsAppAccount
-from app.schemas.business import (
-    BusinessOut,
-    BusinessPatch,
-    ExclusionIn,
-    ExclusionOut,
-    WhatsAppIn,
-    business_out,
-)
+from app.schemas.business import BusinessOut, BusinessPatch, business_out
 from app.services import media
 
 router = APIRouter(prefix="/business", tags=["business"])
@@ -24,6 +12,7 @@ router = APIRouter(prefix="/business", tags=["business"])
 MAX_QR_BYTES = 2 * 1024 * 1024
 _NOT_NULL = (
     "name",
+    "shop_code",
     "delivery_enabled",
     "delivery_fee",
     "pickup_enabled",
@@ -56,7 +45,13 @@ def update_business(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "Enable at least pickup or delivery"
         )
     session.add(business)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:  # shop_code is unique across businesses
+        session.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "This shop code is taken by another business"
+        ) from None
     session.refresh(business)
     return business_out(session, business)
 
@@ -79,81 +74,3 @@ def upload_payment_qr(
     session.commit()
     session.refresh(business)
     return business_out(session, business)
-
-
-@router.put("/whatsapp", response_model=BusinessOut)
-def connect_whatsapp(
-    body: WhatsAppIn, session: SessionDep, business: CurrentBusiness
-) -> BusinessOut:
-    """Connect (or replace) the business's WhatsApp number. The token is stored encrypted."""
-    try:
-        encrypted = encrypt_token(body.access_token)
-    except TokenEncryptionError:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, "Server is missing TOKEN_ENCRYPTION_KEY"
-        ) from None
-    account = session.exec(
-        select(WhatsAppAccount).where(WhatsAppAccount.business_id == business.id)
-    ).first() or WhatsAppAccount(
-        business_id=business.id, phone_number_id="", display_phone="", access_token_encrypted=""
-    )
-    account.phone_number_id = body.phone_number_id
-    account.display_phone = body.display_phone
-    account.access_token_encrypted = encrypted
-    account.coexistence = body.coexistence
-    session.add(account)
-    try:
-        session.commit()
-    except IntegrityError:  # phone_number_id is unique across businesses
-        session.rollback()
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, "This WhatsApp number is connected to another business"
-        ) from None
-    return business_out(session, business)
-
-
-# ---------------------------------------------------------------- exclusions
-
-
-@router.get("/exclusions", response_model=list[ExclusionOut])
-def list_exclusions(session: SessionDep, business: CurrentBusiness) -> list[ContactExclusion]:
-    return list(
-        session.exec(
-            select(ContactExclusion)
-            .where(ContactExclusion.business_id == business.id)
-            .order_by(col(ContactExclusion.label), col(ContactExclusion.wa_phone))
-        ).all()
-    )
-
-
-@router.post("/exclusions", response_model=ExclusionOut, status_code=status.HTTP_201_CREATED)
-def add_exclusion(
-    body: ExclusionIn, session: SessionDep, business: CurrentBusiness
-) -> ContactExclusion:
-    """The AI never answers this number (friends, family, suppliers)."""
-    exclusion = ContactExclusion(
-        business_id=business.id, wa_phone=body.wa_phone, label=body.label.strip()
-    )
-    session.add(exclusion)
-    try:
-        session.commit()
-    except IntegrityError:
-        session.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "This number is already excluded") from None
-    session.refresh(exclusion)
-    return exclusion
-
-
-@router.delete("/exclusions/{exclusion_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_exclusion(
-    exclusion_id: uuid.UUID, session: SessionDep, business: CurrentBusiness
-) -> None:
-    exclusion = session.exec(
-        select(ContactExclusion).where(
-            ContactExclusion.id == exclusion_id, ContactExclusion.business_id == business.id
-        )
-    ).first()
-    if not exclusion:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Exclusion not found")
-    session.delete(exclusion)
-    session.commit()

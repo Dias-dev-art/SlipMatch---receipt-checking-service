@@ -11,7 +11,7 @@ from app.seed import seed
 @pytest.fixture
 def ctx(session):
     business = seed(session)
-    customer = Customer(business_id=business.id, wa_phone="60123456789")
+    customer = Customer(business_id=business.id, tg_chat_id="60123456789")
     session.add(customer)
     session.flush()
     conversation = Conversation(business_id=business.id, customer_id=customer.id)

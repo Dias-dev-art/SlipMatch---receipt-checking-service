@@ -1,18 +1,19 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Copy, Download, ExternalLink, Upload } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import { useRef } from "react";
 import { Controller, useForm, useWatch, type Control, type FieldPath, type FieldValues } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 
 import { FormRow } from "@/components/form-row";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -24,19 +25,11 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useAddExclusion,
-  useBusiness,
-  useExclusions,
-  usePatchBusiness,
-  usePutWhatsApp,
-  useRemoveExclusion,
-  useUploadPaymentQr,
-} from "@/hooks/use-business";
-import { formatPhone } from "@/lib/format";
+import { businessKeys, useBusiness, usePatchBusiness, useUploadPaymentQr } from "@/hooks/use-business";
+import * as api from "@/lib/api";
+import { isConflict, toastError } from "@/lib/errors";
 import { t } from "@/lib/strings";
 import type { Business } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 const s = t.settings;
 const moneySchema = z.string().trim().regex(/^\d{1,4}(\.\d{1,2})?$/, t.menu.priceInvalid);
@@ -56,9 +49,8 @@ export function SettingsView() {
         <div className="flex flex-col gap-4">
           <BusinessCard business={business} />
           <OrderingCard business={business} />
+          <TelegramCard business={business} />
           <PaymentCard business={business} />
-          <WhatsAppCard business={business} />
-          <ExclusionsCard />
         </div>
       )}
     </div>
@@ -350,180 +342,124 @@ function PaymentCard({ business }: { business: Business }) {
   );
 }
 
-// --- WhatsApp ------------------------------------------------------------------
+// --- Telegram ordering link ---------------------------------------------------
 
-const whatsappSchema = z.object({
-  phone_number_id: z.string().trim().regex(/^\d{6,20}$/, t.auth.required),
-  display_phone: z.string().trim().min(1, t.auth.required),
-  access_token: z.string().trim().min(1, t.auth.required),
+const shopCodeSchema = z.object({
+  shop_code: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9][a-z0-9-]{2,31}$/, s.telegram.shopCodeInvalid),
 });
 
-function WhatsAppCard({ business }: { business: Business }) {
-  const put = usePutWhatsApp();
-  const connected = business.whatsapp !== null;
-  const form = useForm<z.infer<typeof whatsappSchema>>({
-    resolver: zodResolver(whatsappSchema),
-    defaultValues: {
-      phone_number_id: business.whatsapp?.phone_number_id ?? "",
-      display_phone: business.whatsapp?.display_phone ?? "",
-      access_token: "",
-    },
+/** The shop's link to the shared Telegram bot, as text, buttons and a printable QR code. */
+function TelegramCard({ business }: { business: Business }) {
+  const queryClient = useQueryClient();
+  const qrRef = useRef<HTMLCanvasElement>(null);
+  const link = business.telegram_link;
+  const form = useForm<z.infer<typeof shopCodeSchema>>({
+    resolver: zodResolver(shopCodeSchema),
+    defaultValues: { shop_code: business.shop_code },
   });
   const { errors, isDirty } = form.formState;
-
-  const onSubmit = form.handleSubmit(async (values) => {
-    const saved = await put.mutateAsync(values).catch(() => null);
-    if (saved) form.reset({ ...values, access_token: "" });
+  const save = useMutation({
+    mutationFn: (shop_code: string) => api.patchBusiness({ shop_code }),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(businessKeys.all, saved);
+      form.reset({ shop_code: saved.shop_code });
+      toast.success(s.telegram.shopCodeSaved);
+    },
+    onError: (error) => {
+      if (isConflict(error)) form.setError("shop_code", { message: s.telegram.shopCodeTaken });
+      else toastError(error);
+    },
   });
+
+  const copy = () =>
+    navigator.clipboard
+      .writeText(link ?? "")
+      .then(() => toast.success(s.telegram.copied))
+      .catch((error) => toastError(error));
+
+  const download = () => {
+    const canvas = qrRef.current;
+    if (!canvas) return;
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `${business.shop_code}-telegram-qr.png`;
+    a.click();
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{s.whatsapp.title}</CardTitle>
-        <CardDescription>{s.whatsapp.description}</CardDescription>
-        <CardAction>
-          <Badge
-            variant="outline"
-            className={connected ? "border-transparent bg-status-approved-soft text-status-approved" : "text-muted-foreground"}
-          >
-            <span className={cn("size-1.5 rounded-full", connected ? "bg-status-approved" : "bg-status-cancelled")} />
-            {connected ? s.whatsapp.connected : s.whatsapp.notConnected}
-          </Badge>
-        </CardAction>
+        <CardTitle>{s.telegram.title}</CardTitle>
+        <CardDescription>{s.telegram.description}</CardDescription>
       </CardHeader>
-      <form onSubmit={onSubmit} noValidate className="contents">
+      <form onSubmit={form.handleSubmit((values) => save.mutate(values.shop_code))} noValidate className="contents">
         <CardContent>
           <FieldGroup>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormRow
-                label={s.whatsapp.phoneNumberId}
-                htmlFor="phone_number_id"
-                description={s.whatsapp.phoneNumberIdHint}
-                error={errors.phone_number_id}
-              >
-                <Input
-                  id="phone_number_id"
-                  inputMode="numeric"
-                  aria-invalid={Boolean(errors.phone_number_id)}
-                  {...form.register("phone_number_id")}
+            {link ? (
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <QRCodeCanvas
+                  ref={qrRef}
+                  value={link}
+                  size={176}
+                  marginSize={2}
+                  // QR codes need dark on white to scan, whatever the theme
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                  aria-label={s.telegram.qrAlt}
+                  className="shrink-0 rounded-lg border"
                 />
-              </FormRow>
-              <FormRow label={s.whatsapp.displayPhone} htmlFor="display_phone" error={errors.display_phone}>
-                <Input
-                  id="display_phone"
-                  inputMode="tel"
-                  placeholder="+60 12-555 0199"
-                  aria-invalid={Boolean(errors.display_phone)}
-                  {...form.register("display_phone")}
-                />
-              </FormRow>
-            </div>
+                <div className="flex min-w-0 flex-col gap-3">
+                  <a
+                    href={link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="truncate rounded-md border bg-muted/40 px-3 py-2 font-mono text-sm underline-offset-2 hover:underline"
+                  >
+                    {link}
+                  </a>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={copy}>
+                      <Copy />
+                      {s.telegram.copy}
+                    </Button>
+                    <Button type="button" variant="outline" asChild>
+                      <a href={link} target="_blank" rel="noreferrer">
+                        <ExternalLink />
+                        {s.telegram.open}
+                      </a>
+                    </Button>
+                    <Button type="button" variant="outline" onClick={download}>
+                      <Download />
+                      {s.telegram.download}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{s.telegram.notReady}</p>
+            )}
             <FormRow
-              label={s.whatsapp.accessToken}
-              htmlFor="access_token"
-              description={connected ? s.whatsapp.accessTokenSaved : s.whatsapp.accessTokenHint}
-              error={errors.access_token}
+              label={s.telegram.shopCode}
+              htmlFor="shop-code"
+              description={s.telegram.shopCodeHint}
+              error={errors.shop_code}
             >
               <Input
-                id="access_token"
-                type="password"
+                id="shop-code"
                 autoComplete="off"
-                placeholder={connected ? "••••••••••••" : ""}
-                aria-invalid={Boolean(errors.access_token)}
-                {...form.register("access_token")}
+                spellCheck={false}
+                className="font-mono"
+                aria-invalid={Boolean(errors.shop_code)}
+                {...form.register("shop_code")}
               />
             </FormRow>
           </FieldGroup>
         </CardContent>
-        <CardFooter className="justify-end border-t bg-muted/30 py-3">
-          <Button type="submit" disabled={!isDirty || put.isPending}>
-            {put.isPending ? t.common.saving : connected ? s.whatsapp.update : s.whatsapp.connect}
-          </Button>
-        </CardFooter>
+        <SaveFooter disabled={!isDirty} pending={save.isPending} />
       </form>
-    </Card>
-  );
-}
-
-// --- Exclusions ----------------------------------------------------------------
-
-const exclusionSchema = z.object({
-  label: z.string().trim().min(1, t.auth.required).max(40),
-  wa_phone: z.string().trim().regex(/^\d{8,15}$/, s.exclusions.phoneInvalid),
-});
-
-function ExclusionsCard() {
-  const { data: exclusions, isPending } = useExclusions();
-  const add = useAddExclusion();
-  const remove = useRemoveExclusion();
-  const form = useForm<z.infer<typeof exclusionSchema>>({
-    resolver: zodResolver(exclusionSchema),
-    defaultValues: { label: "", wa_phone: "" },
-  });
-  const { errors } = form.formState;
-
-  const onSubmit = form.handleSubmit(async (values) => {
-    const added = await add.mutateAsync(values).catch(() => null);
-    if (added) form.reset();
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{s.exclusions.title}</CardTitle>
-        <CardDescription>{s.exclusions.description}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {isPending ? (
-          <Skeleton className="h-16 w-full" />
-        ) : exclusions?.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{s.exclusions.empty}</p>
-        ) : (
-          <ul className="divide-y rounded-lg border">
-            {exclusions?.map((exclusion) => (
-              <li key={exclusion.id} className="flex items-center gap-3 px-3 py-2">
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{exclusion.label}</span>
-                  <span className="text-xs text-muted-foreground">{formatPhone(exclusion.wa_phone)}</span>
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`${t.common.remove} ${exclusion.label}`}
-                  disabled={remove.isPending}
-                  onClick={() => remove.mutate(exclusion.id)}
-                >
-                  <Trash2 />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <form onSubmit={onSubmit} noValidate className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
-          <FormRow label={s.exclusions.label} htmlFor="exc-label" error={errors.label}>
-            <Input
-              id="exc-label"
-              placeholder={s.exclusions.labelPlaceholder}
-              aria-invalid={Boolean(errors.label)}
-              {...form.register("label")}
-            />
-          </FormRow>
-          <FormRow label={s.exclusions.phone} htmlFor="exc-phone" error={errors.wa_phone}>
-            <Input
-              id="exc-phone"
-              inputMode="tel"
-              placeholder={s.exclusions.phonePlaceholder}
-              aria-invalid={Boolean(errors.wa_phone)}
-              {...form.register("wa_phone")}
-            />
-          </FormRow>
-          <Button type="submit" variant="outline" className="sm:mt-6" disabled={add.isPending}>
-            <Plus />
-            {s.exclusions.add}
-          </Button>
-        </form>
-      </CardContent>
     </Card>
   );
 }

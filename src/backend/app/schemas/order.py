@@ -21,8 +21,18 @@ class OrderItemOut(BaseModel):
 
 class CustomerOut(BaseModel):
     id: uuid.UUID
-    wa_phone: str
-    display_name: str | None
+    display_name: str | None  # Telegram first + last name
+    username: str | None  # Telegram @username, without @
+    phone: str | None  # digits with country code, shared by the customer at checkout
+
+
+def customer_out(customer: Customer) -> CustomerOut:
+    return CustomerOut(
+        id=customer.id,
+        display_name=customer.display_name,
+        username=customer.tg_username,
+        phone=customer.phone,
+    )
 
 
 class OrderOut(BaseModel):
@@ -55,9 +65,7 @@ def order_out(session: Session, order: Order) -> OrderOut:
     customer = session.get(Customer, order.customer_id)
     return OrderOut(
         **fields,
-        customer=CustomerOut(
-            id=customer.id, wa_phone=customer.wa_phone, display_name=customer.display_name
-        ),
+        customer=customer_out(customer),
         items=[
             OrderItemOut(
                 id=ln.item.id,
