@@ -101,11 +101,29 @@ User ──► Replit (App / API) ──► RunPod Endpoint (GPU model)
 
 ### Option 1 — Run on Replit (Recommended)
 
-1. Open the [Replit Project](https://replit.com/@your-username/your-project), or import this repository via **Create Repl → Import from GitHub**.
-2. Open the **Secrets** tab (🔒) and add the variables listed in `.env.example`:
-   - `RUNPOD_API_KEY`
-   - `RUNPOD_ENDPOINT_ID`
-3. Click **Run**. Replit uses the `.replit` file to start `python src/main.py`.
+One process serves everything: the API, the WhatsApp webhook (`/webhook`), images (`/media`) and
+the dashboard (a static Next.js export mounted by FastAPI at `/`). `.replit` holds the build and run
+commands.
+
+1. **Create Repl → Import from GitHub** and pick this repository (`main`).
+2. Add a **PostgreSQL** database from the Database tool. Replit sets `DATABASE_URL` for you.
+3. Open **Secrets** and add:
+
+   | Secret | Value |
+   | --- | --- |
+   | `ENV` | `prod` (turns off `/dev/simulate`) |
+   | `JWT_SECRET` | a long random string: `python -c "import secrets; print(secrets.token_hex(32))"` |
+   | `TOKEN_ENCRYPTION_KEY` | a Fernet key (command in `.env.example`) |
+   | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | the RunPod endpoint (OpenAI-compatible) |
+   | `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | see `docs/WHATSAPP_SETUP.md` |
+   | `PUBLIC_BASE_URL`, `FRONTEND_URL` | the published URL, e.g. `https://<app>.replit.app` |
+
+4. **Publish → Reserved VM**. Use a Reserved VM, not Autoscale: the live dashboard events and the
+   10-minute order timers run inside the one server process. The build exports the dashboard and
+   installs the backend; each start runs the migrations and seeds the demo account
+   (`demo@demo.my` / `demo1234`).
+5. In the Meta app, set the webhook URL to `https://<app>.replit.app/webhook`, then connect the
+   WhatsApp number and upload the payment QR in the dashboard's **Settings**.
 
 ### Option 2 — Run Locally
 

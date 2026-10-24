@@ -115,7 +115,6 @@ JWT_SECRET=change-me
 JWT_EXPIRE_MINUTES=10080
 FRONTEND_URL=http://localhost:3000
 PUBLIC_BASE_URL=http://localhost:8000   # how Meta reaches the backend (ngrok URL in dev); /media links
-# MEDIA_DIR=src/backend/media          # uploaded QRs + customer screenshots (default)
 
 LLM_BASE_URL=https://openrouter.ai/api/v1
 LLM_API_KEY=sk-or-...

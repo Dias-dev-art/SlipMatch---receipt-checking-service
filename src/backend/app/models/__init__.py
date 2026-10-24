@@ -9,6 +9,7 @@ from app.models.customer import (
     MessageType,
     Sender,
 )
+from app.models.media import MediaFile
 from app.models.menu import MenuItem
 from app.models.order import ACTIVE_STATUSES, Order, OrderItem, OrderStatus, OrderType
 from app.models.whatsapp import ContactExclusion, ProcessedWebhook, WhatsAppAccount
@@ -20,6 +21,7 @@ __all__ = [
     "Conversation",
     "Customer",
     "Direction",
+    "MediaFile",
     "MenuItem",
     "Message",
     "MessageType",

@@ -74,7 +74,7 @@ def upload_payment_qr(
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Image must be 2 MB or smaller")
     if not data:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The file is empty")
-    business.payment_qr_url = media.save(business.id, "qr", ext, data)
+    business.payment_qr_url = media.save(session, business.id, "qr", ext, data)
     session.add(business)
     session.commit()
     session.refresh(business)
