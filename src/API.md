@@ -66,8 +66,8 @@ A handoff nobody acts on resumes by itself 24h after `handoff_at` (timer job).
 
 ## Media (public)
 
-`GET /media/<business_id>/<file>` serves uploaded payment QRs and downloaded customer screenshots.
-The DB stores the `/media/...` path; API responses and WhatsApp messages use
+`GET /media/<business_id>/<file>` serves uploaded payment QRs and downloaded customer screenshots
+(bytes in the `media_files` table, 404 if unknown, cached as immutable). The DB stores the `/media/...` path; API responses and WhatsApp messages use
 `PUBLIC_BASE_URL + path`, so a new ngrok or hosting URL does not break old links.
 
 ## WhatsApp webhook (public)
