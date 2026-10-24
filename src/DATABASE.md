@@ -154,6 +154,19 @@ Index: `(status, expires_at)` for the timer job; `(business_id, status, created_
 | wa_message_id | text PK     | dedupe Meta retries  |
 | received_at   | timestamptz | cleanup after 7 days |
 
+### media_files
+
+Payment QRs and customer screenshots, kept in Postgres because hosting disks are wiped on deploy.
+
+| Column       | Type         | Notes                                      |
+| ------------ | ------------ | ------------------------------------------ |
+| id           | uuid PK      |                                            |
+| business_id  | uuid FK      | indexed                                    |
+| path         | text unique  | public link path `/media/<business>/<file>` |
+| content_type | text         | `image/png`, `image/jpeg`, `image/webp`    |
+| data         | bytea        | ≤ 2 MB for QRs                             |
+| created_at   | timestamptz  |                                            |
+
 ## Relations
 
 ```
@@ -162,6 +175,7 @@ businesses 1─* menu_items
 businesses 1─* customers 1─* conversations 1─* messages
 conversations 1─* orders 1─* order_items *─1 menu_items
 businesses 1─* contact_exclusions
+businesses 1─* media_files
 ```
 
 A conversation has at most one order in `chatting`, `awaiting_payment` or `payment_check` at a time (enforce with a partial unique index).

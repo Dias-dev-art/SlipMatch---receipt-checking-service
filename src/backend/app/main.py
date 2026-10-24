@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api import media
 from app.api.v1 import api_router, dev
 from app.core.config import settings
 from app.services import timers
@@ -49,10 +50,12 @@ def create_app() -> FastAPI:
     app.include_router(api_router)
     app.include_router(webhook.router)
     # payment QRs and customer screenshots; public so WhatsApp can fetch the QR by link
-    settings.MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-    app.mount("/media", StaticFiles(directory=settings.MEDIA_DIR), name="media")
+    app.include_router(media.router)
     if settings.ENV in ("dev", "test"):
         app.include_router(dev.router)
+    # the dashboard as static files (one URL in production); last, so the routes above win
+    if settings.FRONTEND_DIST.is_dir():
+        app.mount("/", StaticFiles(directory=settings.FRONTEND_DIST, html=True), name="frontend")
     return app
 
 

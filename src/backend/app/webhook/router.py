@@ -76,13 +76,15 @@ def _first_time(session: Session, wa_message_id: str) -> bool:
     return inserted is not None
 
 
-def _save_image(client: whatsapp.GraphClient, business_id, media_id: str) -> str | None:
+def _save_image(
+    session: Session, client: whatsapp.GraphClient, business_id, media_id: str
+) -> str | None:
     downloaded = client.download_media(media_id)
     if not downloaded:
         return None
     data, mime = downloaded
     ext = media.IMAGE_TYPES.get(mime)
-    return media.save(business_id, "proof", ext, data) if ext else None
+    return media.save(session, business_id, "proof", ext, data) if ext else None
 
 
 def process_message(message: parser.ParsedMessage) -> str:
@@ -98,7 +100,7 @@ def process_message(message: parser.ParsedMessage) -> str:
             return "no_token"
         media_url = None
         if message.type == MessageType.image and message.media_id:
-            media_url = _save_image(client, account.business_id, message.media_id)
+            media_url = _save_image(session, client, account.business_id, message.media_id)
         result = handle_incoming(
             session,
             message.to_incoming(account.business_id, media_url),
