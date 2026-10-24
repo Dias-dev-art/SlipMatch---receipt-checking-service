@@ -23,7 +23,7 @@
 | Replit Project    | https://replit.com/@eldar4592/Waitly                    |
 | Live Demo         | https://waitly.replit.app                               |
 | RunPod Endpoint   | https://api.runpod.ai/v2/9okqh773l7h1yp/openai/v1       |
-| Slide Deck        | https://example.com/slides                              |
+| Slide Deck        | C:\Users\eldar\slipmatch-clean\docs\slides.html         |
 | Demo Video        | https://youtu.be/LCTPSV2qdas?si=Uyp1WV1GtIJ27LYc        |
 | Demo Video        | https://youtu.be/pMQJo9fGBKQ?si=-51ROjltalS_jfmQ        |
 
