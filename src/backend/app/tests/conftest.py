@@ -1,8 +1,6 @@
 """Tests run on a real Postgres DB `<DATABASE_URL db>_test`, built by the migrations."""
 
 import os
-import tempfile
-from pathlib import Path
 
 from cryptography.fernet import Fernet
 from sqlalchemy.engine import make_url
@@ -15,7 +13,6 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL.render_as_string(hide_password=Fa
 settings.DATABASE_URL = os.environ["DATABASE_URL"]
 settings.ENV = "test"
 settings.JWT_SECRET = "test-secret-key-that-is-long-enough-for-hs256"
-settings.MEDIA_DIR = Path(tempfile.mkdtemp(prefix="orderagent-media-"))
 settings.PUBLIC_BASE_URL = "https://backend.test"
 settings.TOKEN_ENCRYPTION_KEY = Fernet.generate_key().decode()
 settings.WHATSAPP_APP_SECRET = "test-app-secret"

@@ -1,0 +1,23 @@
+# Replit: one process serves the API, the WhatsApp webhook, /media and the dashboard.
+# The dashboard is a static Next.js export (src/frontend/out) mounted by FastAPI at /.
+modules = ["python-3.12", "nodejs-22", "postgresql-16"]
+
+[nix]
+packages = ["uv"]
+
+[env]
+PYTHONUNBUFFERED = "1"
+
+# Workspace "Run" button: build, then start (same commands as the deployment)
+run = ["sh", "-c", "cd src/frontend && npm ci && NEXT_PUBLIC_API_URL= npm run build && cd ../backend && uv sync --frozen --no-dev && uv run --frozen --no-dev alembic upgrade head && uv run --frozen --no-dev python -m app.seed && uv run --frozen --no-dev fastapi run app/main.py --host 0.0.0.0 --port 8000"]
+
+[deployment]
+# Reserved VM: one always-on instance. The SSE event bus and the order timers live in this
+# process, so Autoscale (several instances, scale to zero) would break them.
+deploymentTarget = "vm"
+build = ["sh", "-c", "cd src/frontend && npm ci && NEXT_PUBLIC_API_URL= npm run build && cd ../backend && uv sync --frozen --no-dev"]
+run = ["sh", "-c", "cd src/backend && uv run --frozen --no-dev alembic upgrade head && uv run --frozen --no-dev python -m app.seed && uv run --frozen --no-dev fastapi run app/main.py --host 0.0.0.0 --port 8000"]
+
+[[ports]]
+localPort = 8000
+externalPort = 80

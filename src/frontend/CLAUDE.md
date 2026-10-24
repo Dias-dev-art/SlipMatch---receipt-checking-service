@@ -1,6 +1,6 @@
 # Frontend — Waitly owner dashboard (Next.js)
 
-The app is called **Waitly**. Read `../CLAUDE.md` and `../API.md` first, and `AGENTS.md` before touching Next.js APIs: this is Next.js 16 with `cacheComponents` and `partialPrefetching` on, so check `node_modules/next/dist/docs/` instead of relying on older Next.js knowledge.
+The app is called **Waitly**. Read `../CLAUDE.md` and `../API.md` first, and `AGENTS.md` before touching Next.js APIs: this is Next.js 16, so check `node_modules/next/dist/docs/` instead of relying on older Next.js knowledge.
 
 ## Setup (done)
 
@@ -62,6 +62,7 @@ No Inbox or Test chat page: when the AI hands a chat off (`handoff_to_owner`), t
 - `subscribeEvents` in `lib/api.ts` is an `EventSource` on `/api/v1/events?token=…` (reconnects when the stream closes). `use-server-events.ts` handles `order.*`, `payment.check_requested` (sound + toast) and `conversation.needs_owner` (toast with **Resume AI** → `POST /api/v1/conversations/{id}/resume-ai`).
 - `src/lib/types.ts` hand-writes the API shapes; replace with the generated `api-types.ts`. Money and coordinates are decimal strings from the API. Order items: `{id, menu_item_id, slug, name, unit_price, qty, note}` (name/price are snapshots).
 - Test orders without WhatsApp: `POST /dev/simulate` on the backend (`/docs`), the board updates live.
+- Production is a static export (`output: "export"` in `next.config.ts`, so no server features: no server actions, route handlers, rewrites or `cacheComponents`). `NEXT_PUBLIC_API_URL= npm run build` writes `out/`, which the FastAPI backend serves at `/`; the empty API URL makes every call same-origin.
 
 ## Mock data (offline design)
 
