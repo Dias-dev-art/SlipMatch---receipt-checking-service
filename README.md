@@ -1,6 +1,6 @@
-# Project Name
+# Waitly
 
-> A one-sentence description of what your project does and who it is for.
+> Waitly lets small Malaysian food sellers take orders through an AI Telegram bot while they only check and approve payments on a web dashboard
 
 ---
 
@@ -17,14 +17,15 @@
 
 ## Links
 
-| Resource          | Link                                           |
-| ----------------- | ---------------------------------------------- |
-| GitHub Repository | https://github.com/your-username/your-project  |
-| Replit Project    | https://replit.com/@your-username/your-project |
-| Live Demo         | https://your-project.replit.app                |
-| RunPod Endpoint   | https://api.runpod.ai/v2/your-endpoint-id      |
-| Slide Deck        | https://example.com/slides                     |
-| Demo Video        | https://example.com/demo-video                 |
+| Resource          | Link                                                    |
+| ----------------- | ------------------------------------------------------- |
+| GitHub Repository | https://github.com/Dias-dev-art/Waitly_Ordering-App.git |
+| Replit Project    | https://replit.com/@eldar4592/Waitly                    |
+| Live Demo         | https://waitly.replit.app                               |
+| RunPod Endpoint   | https://api.runpod.ai/v2/9okqh773l7h1yp/openai/v1       |
+| Slide Deck        | https://example.com/slides                              |
+| Demo Video        | https://youtu.be/LCTPSV2qdas?si=Uyp1WV1GtIJ27LYc        |
+| Demo Video        | https://youtu.be/pMQJo9fGBKQ?si=-51ROjltalS_jfmQ        |
 
 ---
 
@@ -53,14 +54,14 @@ An AI agent (Qwen2.5-7B-Instruct served on a RunPod endpoint) handles the chat: 
 
 ### Tech Stack
 
-| Layer         | Technology                                                                  |
-| ------------- | --------------------------------------------------------------------------- |
-| Frontend      | Next.js 16 (React 19, TypeScript), Tailwind CSS, shadcn/ui, TanStack Query  |
-| Backend       | Python 3.12, FastAPI, SQLModel, Alembic                                     |
-| Database      | PostgreSQL 16                                                               |
-| Messaging     | Telegram Bot API (webhook)                                                  |
+| Layer         | Technology                                                                   |
+| ------------- | ---------------------------------------------------------------------------- |
+| Frontend      | Next.js 16 (React 19, TypeScript), Tailwind CSS, shadcn/ui, TanStack Query   |
+| Backend       | Python 3.12, FastAPI, SQLModel, Alembic                                      |
+| Database      | PostgreSQL 16                                                                |
+| Messaging     | Telegram Bot API (webhook)                                                   |
 | AI / Compute  | Qwen2.5-7B-Instruct on RunPod (GPU), OpenAI-compatible API with tool calling |
-| Hosting / Dev | Replit (Reserved VM)                                                        |
+| Hosting / Dev | Replit (Reserved VM)                                                         |
 
 ---
 
@@ -69,18 +70,18 @@ An AI agent (Qwen2.5-7B-Instruct served on a RunPod endpoint) handles the chat: 
 ```
 .
 ├── docs/
-│   └── TELEGRAM_SETUP.md    # Create the bot and connect it to the backend
+│   └──
 ├── runpod/
-│   └── CLAUDE.md            # Fine-tuning + serving on RunPod
+│               # Fine-tuning + serving on RunPod
 ├── src/
 │   ├── CLAUDE.md            # Start here: goals, rules, build order
 │   ├── ARCHITECTURE.md      # System design, message flow, AI agent loop
 │   ├── DATABASE.md          # Tables and relations
 │   ├── API.md               # HTTP endpoints and AI tool contracts
 │   ├── backend/             # FastAPI (Python)
-│   │   └── CLAUDE.md
+│   │
 │   └── frontend/            # Next.js owner dashboard
-│       └── CLAUDE.md
+│
 ├── submission/              # Required submission documents
 │   ├── SDC2026_TeamName_Preliminary.pdf      # Preliminary submission
 │   ├── SDC2026_TeamName_TechDeclaration.pdf  # Technology declaration
@@ -119,15 +120,15 @@ commands.
 2. Add a **PostgreSQL** database from the Database tool. Replit sets `DATABASE_URL` for you.
 3. Open **Secrets** and add:
 
-   | Secret | Value |
-   | --- | --- |
-   | `ENV` | `prod` (turns off `/dev/simulate`) |
-   | `JWT_SECRET` | a long random string: `python -c "import secrets; print(secrets.token_hex(32))"` |
-   | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | the RunPod endpoint (OpenAI-compatible) |
-   | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | from @BotFather, see `docs/TELEGRAM_SETUP.md` |
-   | `TELEGRAM_WEBHOOK_SECRET` | a random string: `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
-   | `TELEGRAM_DEFAULT_SHOP` | `kak-ani-kitchen` (the demo shop, for chats opened without a shop link) |
-   | `PUBLIC_BASE_URL`, `FRONTEND_URL` | the published URL, e.g. `https://<app>.replit.app` |
+   | Secret                                        | Value                                                                            |
+   | --------------------------------------------- | -------------------------------------------------------------------------------- |
+   | `ENV`                                         | `prod` (turns off `/dev/simulate`)                                               |
+   | `JWT_SECRET`                                  | a long random string: `python -c "import secrets; print(secrets.token_hex(32))"` |
+   | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`    | the RunPod endpoint (OpenAI-compatible)                                          |
+   | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | from @BotFather, see `docs/TELEGRAM_SETUP.md`                                    |
+   | `TELEGRAM_WEBHOOK_SECRET`                     | a random string: `python -c "import secrets; print(secrets.token_urlsafe(32))"`  |
+   | `TELEGRAM_DEFAULT_SHOP`                       | `kak-ani-kitchen` (the demo shop, for chats opened without a shop link)          |
+   | `PUBLIC_BASE_URL`, `FRONTEND_URL`             | the published URL, e.g. `https://<app>.replit.app`                               |
 
 4. **Publish → Reserved VM**. Use a Reserved VM, not Autoscale: the live dashboard events and the
    10-minute order timers run inside the one server process. The build exports the dashboard and
@@ -194,104 +195,39 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
 
 ## Challenges & Learnings
 
-- What challenges did you face, and how did you overcome them?
-- What did your team learn?
+- We have faced the challenge of implementing Whatsapp Api Integration to our app. The main thing that was holding us back from achieving MVP was the test numbers of Meta Developers account. We have been on working on claiming the test number. Unfortunately, meta has been flagging our accounts so we made a choice of moving towards a Telegram option since it has much easier implementation. We have learned that we shouldn't make a fast decision towards our idea without confirming its consequences and sudden problems on the way
+- We also have faced the challenge of dividing the roles and picking who is responsible for what decision, specifically the codebase. But we have figured out on the halfway through that even though someone is less capable and less knowledgable of something, he must contribute to the project.
 
 ## Future Improvements
 
-- [ ] Improvement 1
-- [ ] Improvement 2
+- [x] Focusing on majority of the manglish speaking clients and fine tuning AI towards better answers
+- [ ] In the future we will still try implementing this project into Whatsapp
 
 ## Team
 
-| Name        | Role                | GitHub                                   |
-| ----------- | ------------------- | ---------------------------------------- |
-| Member Name | Team Lead / Backend | [@username](https://github.com/username) |
-| Member Name | Frontend            | [@username](https://github.com/username) |
-| Member Name | AI / RunPod         | [@username](https://github.com/username) |
+| Name        | Role            | GitHub                                           |
+| ----------- | --------------- | ------------------------------------------------ |
+| Member Name | Team Lead       | [@Dias-dev-art](https://github.com/Dias-dev-art) |
+| Member Name | Frontend mainly | [@eiequez](https://github.com/eiequez)           |
+| Member Name | Backend mainly  | [@4PKA](https://github.com/4PKA)                 |
+| Member Name | AI / RunPod     | [@meirdair](https://github.com/meirdair)         |
+| Member Name | Replit deploy   | [@Vaqlur](https://github.com/Vaqlur)             |
 
 ---
 
 ## Submission Checklist
 
-- [ ] Team name, domain (Domain 1 / Domain 2) and SDG track filled in
+- [x] Team name, domain (Domain 1 / Domain 2) and SDG track filled in
 - [ ] Slide deck link added
-- [ ] Demo video link added
-- [ ] Replit used, with proof of use in `submission/`
-- [ ] RunPod used, with proof of use in `submission/`
-- [ ] Preliminary submission completed (`SDC2026_TeamName_Preliminary.pdf`)
-- [ ] Technology declaration completed (`SDC2026_TeamName_TechDeclaration.pdf`)
-- [ ] Submission files renamed with your team name (replace `TeamName`)
-- [ ] "How to Run" steps verified
-- [ ] No API keys or secrets committed to the repository
+- [x] Demo video link added
+- [x] Replit used, with proof of use in `submission/`
+- [x] RunPod used, with proof of use in `submission/`
+- [x] Preliminary submission completed (`SDC2026_TeamName_Preliminary.pdf`)
+- [x] Technology declaration completed (`SDC2026_TeamName_TechDeclaration.pdf`)
+- [x] Submission files renamed with your team name (replace `TeamName`)
+- [x] "How to Run" steps verified
+- [x] No API keys or secrets committed to the repository
 
 ## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
-
-## How to Run (Local)
-
-### Prerequisites
-
-- Docker Desktop (running)
-- [uv](https://docs.astral.sh/uv/) (Python)
-- Node.js + npm
-- ngrok
-
-### First-time setup
-
-```powershell
-copy .env.example .env      # then fill in your values
-cd src\backend
-uv sync
-cd ..\frontend
-npm install
-```
-
-### Start the project
-
-Run each block in its own terminal, starting from the repo root.
-
-**1. Database**
-
-```powershell
-docker compose up -d db
-cd src\backend
-uv run alembic upgrade head
-uv run python -m app.seed      # demo account + menu, prints the shop's Telegram link
-```
-
-**2. Backend** → http://localhost:8000 (docs at `/docs`)
-
-```powershell
-cd src\backend
-uv run fastapi dev app/main.py --port 8000
-```
-
-**3. ngrok** (public https URL so Telegram can reach the webhook)
-
-```powershell
-ngrok http 8000
-```
-
-> Put the ngrok URL in `.env` as `PUBLIC_BASE_URL`, then (re)start the backend: it registers the
-> Telegram webhook itself and logs the shop link (`Telegram link for Kak Ani Kitchen: ...`).
-> Bot setup: `docs/TELEGRAM_SETUP.md`.
-
-**4. Frontend** → http://localhost:3000
-
-```powershell
-cd src\frontend
-npm run dev
-```
-
-Demo login: `demo@demo.my` / `demo1234`
-
-### Stop the project
-
-- Press `Ctrl+C` in the backend, ngrok and frontend terminals.
-- Stop the database (data is kept in the `pgdata` volume):
-  ```powershell
-  docker compose down
-  ```
-  Don't add `-v`, because that deletes the database data.

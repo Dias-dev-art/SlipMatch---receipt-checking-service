@@ -1,17 +1,4 @@
-"""
-Chat with the shop's bot like a customer on WhatsApp. The chat is saved, so it continues next time.
 
-  python chat.py                 # chat as "guest"
-  python chat.py --as ali        # chat as another customer (each has their own saved history)
-
-It waits for you to text first. Commands:
-  /history   show the saved conversation and orders
-  /new       forget this customer's chat and start fresh
-  /menu      show today's stock      /debug   show why the bot answered that way
-  /reset     put stock back to menu.csv
-  /quit      stop (the chat stays saved)
-Stock only goes down inside this program; menu.csv is never changed.
-"""
 import argparse
 
 import order_ai

@@ -1,16 +1,4 @@
 """
-Tests the order AI on data/test_orders.csv and gives you a score.
-
-  python eval_orders.py --split dev     # use while you are tuning
-  python eval_orders.py --split test    # hidden test (already used for v2 -> now a 2nd practice set)
-  python eval_orders.py --split test2   # fresh hidden test for the final numbers (run once)
-  python eval_orders.py --split qa      # food questions (should be ANSWER)
-  python eval_orders.py --split typo    # orders with spelling mistakes
-  python eval_orders.py --orders data/train/generated_orders.csv --split gen --limit 100
-                                        # 100 of the generated examples
-
-IMPORTANT: the expected answers depend on the stock in data/menu.csv.
-Don't change menu.csv stock numbers, or the expected decisions become wrong.
 
 expected_items format: K04:10;K06:2   (NONE:1 = an item that is not on the menu)
 """
