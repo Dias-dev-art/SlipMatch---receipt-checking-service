@@ -32,27 +32,35 @@
 
 ### Problem
 
-The payment proof that the Malaysian micro-sellers receive when they receive orders through WhatsApp are usually screenshots of the DuitNow or bank transaction, and dozens of times per day. For each of these, the owner must open a bank app and locate the corresponding transfer, and verify it against the right order, which requires 6 steps or so and is typically done late at night. It's slow and prone to error: an incorrect amount can be missed; failed payment or the same image twice and sellers could end up with goods sent to an empty wallet. It impacts home-based sellers, small caterers and other micro and small businesses without accounting employees or payment-gateway integrations.
+Small food businesses in Malaysia (home cooks, small kitchens, caterers) take most of their orders through chat. The owner has to answer every message by hand: menu questions, "ada pedas tak?", quantities, pickup or delivery, the address, the total and the payment details. Customers write in Malay, English, Manglish and typos, often while the owner is busy cooking. Orders get missed, totals are calculated by hand, and the owner still has to check each transfer against the right order in the bank app. These businesses have no staff for this and no payment-gateway integration.
 
 ### Solution
 
-SlipMatch is an Orbyte module that leverages a vision AI model (Qwen2.5-VL-7B) on a dedicated RunPod endpoint to read payment-proof screenshots sent on WhatsApp. It captures the amount, the reference, the date and who it is for, and it compares these data with open invoices and bank statement based on 5 transparent rules: amount, reference, payee, date window and duplicate slip. Each slip has a status (Matched, Needs review or Suspicious) and simple language reasons, so the slip owner knows why. All payments are not recorded as paid until approved by the Owner, and all actions are stored in an audit log. If the model is unable to read a field, the slip is not guessed and it is sent to human review instead. A manual entry fallback is provided for the workflow if the AI endpoint is not available, with a clear and prominent label. The value is that AI covers part rules that cannot be covered (reading screenshots), rules and a human keep the decision accurate and accountable.
+**Waitly** lets customers order from a shop by chatting with a Telegram bot, while the owner only checks the payment. One shared bot (@WaitlyAppBot) serves every shop: each business gets its own link (`t.me/WaitlyAppBot?start=<shop_code>`) to share or print as a QR code, and the bot welcomes the customer with that shop's name and menu.
+
+An AI agent (Qwen2.5-7B-Instruct served on a RunPod endpoint) handles the chat: it answers menu questions, understands Manglish ("boss nak 2 nasi lemak tapau"), builds the order and asks for what is missing. The core rule is **"AI talks, code decides"**: the AI can only change an order through tool calls, and the backend checks every call against the database. Items must exist and be available, prices come from the menu, totals are calculated in Python and order status changes only happen in code. When the order is complete, the bot sends the shop's DuitNow QR with the amount and a reference code. The owner sees the order live on the Waitly web dashboard, checks the bank and presses **Approve** or **Not received**, and the customer gets a fixed confirmation message in Telegram. The AI never says a payment was received.
 
 ### Key Features
 
-- **Feature 1** — Short description.
-- **Feature 2** — Short description.
-- **Feature 3** — Short description.
+- **Telegram ordering bot** — One bot for every shop. Each shop has its own link and QR code, and the welcome message shows the shop's name and menu.
+- **AI order agent** — Understands Malay, English and Manglish, answers questions from the menu and builds the order through validated tool calls.
+- **Code-checked orders** — Prices, totals and order status are always computed by the backend, never taken from the AI. Replies that claim an action the AI did not actually take are blocked.
+- **Payment flow** — DuitNow QR + reference sent automatically, optional unique amounts (e.g. RM10.03) to find the transfer quickly, and a 10-minute timer on every step.
+- **Live owner dashboard** — Orders appear in real time with a sound and countdown on "Check payment"; Approve / Not received / Restore / Cancel in one click.
+- **Menu editor** — Add and edit items, with a sold-out switch that the AI respects immediately.
+- **Handoff to the owner** — Complaints and refund requests are passed to the owner, and the AI stops replying in that chat until **Resume AI**.
+- **Multi-tenant** — Many businesses on one platform, each with its own menu, settings, orders and shop link.
 
 ### Tech Stack
 
-| Layer         | Technology      |
-| ------------- | --------------- |
-| Frontend      | HTML, React     |
-| Backend       | Python, FastAPI |
-| Database      | PostgreSQL      |
-| AI / Compute  | RunPod (GPU)    |
-| Hosting / Dev | Replit          |
+| Layer         | Technology                                                                  |
+| ------------- | --------------------------------------------------------------------------- |
+| Frontend      | Next.js 16 (React 19, TypeScript), Tailwind CSS, shadcn/ui, TanStack Query  |
+| Backend       | Python 3.12, FastAPI, SQLModel, Alembic                                     |
+| Database      | PostgreSQL 16                                                               |
+| Messaging     | Telegram Bot API (webhook)                                                  |
+| AI / Compute  | Qwen2.5-7B-Instruct on RunPod (GPU), OpenAI-compatible API with tool calling |
+| Hosting / Dev | Replit (Reserved VM)                                                        |
 
 ---
 
@@ -60,10 +68,10 @@ SlipMatch is an Orbyte module that leverages a vision AI model (Qwen2.5-VL-7B) o
 
 ```
 .
-├── docs/                    # Screenshots, diagrams
+├── docs/
+│   └── TELEGRAM_SETUP.md    # Create the bot and connect it to the backend
 ├── runpod/
-│   ├── CLAUDE.md            # Fine-tuning + serving on RunPod
-│   └── handler.py           # RunPod serverless handler (GPU workload)
+│   └── CLAUDE.md            # Fine-tuning + serving on RunPod
 ├── src/
 │   ├── CLAUDE.md            # Start here: goals, rules, build order
 │   ├── ARCHITECTURE.md      # System design, message flow, AI agent loop
@@ -90,9 +98,11 @@ SlipMatch is an Orbyte module that leverages a vision AI model (Qwen2.5-VL-7B) o
 ### Architecture
 
 ```
-User ──► Replit (App / API) ──► RunPod Endpoint (GPU model)
-                │
-                └──► Response returned to user
+Customer (Telegram) ──► Telegram Bot API ──► Replit: FastAPI backend ──► RunPod endpoint (LLM)
+        ▲                                     │        │
+        └──── replies, QR, confirmation ──────┘        ├──► PostgreSQL (menus, orders, chats)
+                                                       │
+Owner ──► Waitly dashboard (Next.js) ◀── REST + live events ──┘
 ```
 
 ---
@@ -101,7 +111,7 @@ User ──► Replit (App / API) ──► RunPod Endpoint (GPU model)
 
 ### Option 1 — Run on Replit (Recommended)
 
-One process serves everything: the API, the WhatsApp webhook (`/webhook`), images (`/media`) and
+One process serves everything: the API, the Telegram webhook (`/telegram/webhook`), images (`/media`) and
 the dashboard (a static Next.js export mounted by FastAPI at `/`). `.replit` holds the build and run
 commands.
 
@@ -113,43 +123,40 @@ commands.
    | --- | --- |
    | `ENV` | `prod` (turns off `/dev/simulate`) |
    | `JWT_SECRET` | a long random string: `python -c "import secrets; print(secrets.token_hex(32))"` |
-   | `TOKEN_ENCRYPTION_KEY` | a Fernet key (command in `.env.example`) |
    | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | the RunPod endpoint (OpenAI-compatible) |
-   | `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | see `docs/WHATSAPP_SETUP.md` |
+   | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | from @BotFather, see `docs/TELEGRAM_SETUP.md` |
+   | `TELEGRAM_WEBHOOK_SECRET` | a random string: `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
+   | `TELEGRAM_DEFAULT_SHOP` | `kak-ani-kitchen` (the demo shop, for chats opened without a shop link) |
    | `PUBLIC_BASE_URL`, `FRONTEND_URL` | the published URL, e.g. `https://<app>.replit.app` |
 
 4. **Publish → Reserved VM**. Use a Reserved VM, not Autoscale: the live dashboard events and the
    10-minute order timers run inside the one server process. The build exports the dashboard and
    installs the backend; each start runs the migrations and seeds the demo account
    (`demo@demo.my` / `demo1234`).
-5. In the Meta app, set the webhook URL to `https://<app>.replit.app/webhook`, then connect the
-   WhatsApp number and upload the payment QR in the dashboard's **Settings**.
+5. Nothing to set on Telegram's side: each start registers the webhook
+   (`https://<app>.replit.app/telegram/webhook`) and logs every shop's link, e.g.
+   `https://t.me/<bot>?start=kak-ani-kitchen`. Upload the payment QR in the dashboard's
+   **Settings**, then open the link on a phone and order.
 
 ### Option 2 — Run Locally
 
+Needs Docker, [uv](https://docs.astral.sh/uv/), Node.js and ngrok. Full steps: [How to Run (Local)](#how-to-run-local) below.
+
 ```bash
-# 1. Clone the repository
-git clone https://github.com/your-username/your-project.git
-cd your-project
-
-# 2. Create and activate a virtual environment
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Configure environment variables
-cp .env.example .env            # then fill in your values
-
-# 5. Run the app
-python src/main.py
+cp .env.example .env                                   # then fill in your values
+docker compose up -d db                                # PostgreSQL
+cd src/backend && uv sync && uv run alembic upgrade head && uv run python -m app.seed
+uv run fastapi dev app/main.py --port 8000             # backend + Telegram webhook
+# second terminal, from the repo root:
+cd src/frontend && npm install && npm run dev          # dashboard on http://localhost:3000
 ```
 
 ### Run Tests
 
 ```bash
-python -m unittest discover test
+cd src/backend
+uv run pytest                                # backend tests (fake LLM, no network)
+uv run python -m app.evals.llm_scenarios     # real conversations against the RunPod model
 ```
 
 ---
@@ -251,6 +258,7 @@ Run each block in its own terminal, starting from the repo root.
 docker compose up -d db
 cd src\backend
 uv run alembic upgrade head
+uv run python -m app.seed      # demo account + menu, prints the shop's Telegram link
 ```
 
 **2. Backend** → http://localhost:8000 (docs at `/docs`)
@@ -260,17 +268,15 @@ cd src\backend
 uv run fastapi dev app/main.py --port 8000
 ```
 
-**3. ngrok** (public URL for the WhatsApp webhook)
+**3. ngrok** (public https URL so Telegram can reach the webhook)
 
 ```powershell
 ngrok http 8000
 ```
 
-> If the ngrok URL changes:
->
-> 1. Update `PUBLIC_BASE_URL` in `.env`.
-> 2. Restart the backend.
-> 3. Update the webhook URL in the Meta dashboard.
+> Put the ngrok URL in `.env` as `PUBLIC_BASE_URL`, then (re)start the backend: it registers the
+> Telegram webhook itself and logs the shop link (`Telegram link for Kak Ani Kitchen: ...`).
+> Bot setup: `docs/TELEGRAM_SETUP.md`.
 
 **4. Frontend** → http://localhost:3000
 
